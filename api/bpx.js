@@ -9,7 +9,10 @@ const client = createClient({
 module.exports = async function handler(req, res) {
     try {
         if (req.method === 'POST') {
-            const { url } = req.body;
+            // The new script sends a nested payload: { data: { u: "url" } }
+            const { data } = req.body;
+            const url = data ? data.u : null; // Get URL from the 'u' property
+
             console.log(`Received tracking request for URL: ${url || 'Not provided'}`);
 
             if (!url) {
@@ -52,6 +55,7 @@ module.exports = async function handler(req, res) {
                 args: [url, new URL(url).hostname],
             });
 
+            // sendBeacon doesn't need a response, but we send one for direct API calls.
             return res.status(200).json({ message: 'View tracked.' });
 
         } else if (req.method === 'GET') {

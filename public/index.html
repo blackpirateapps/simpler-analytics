@@ -79,21 +79,24 @@
         // --- SCRIPT SNIPPET & COPY ---
 
         function generateTrackingScript() {
-            const apiUrl = `${window.location.origin}/api/analytics`;
+            // The new, less obvious endpoint. We'll Base64 encode this for the script.
+            const endpoint = '/api/bpx';
+            const encodedEndpoint = btoa(endpoint);
+
             const scriptContent = `
 <script>
-  async function trackPageView() {
-    try {
-      await fetch('${apiUrl}', { 
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: window.location.href }),
-      });
-    } catch (error) {
-      console.error('Error tracking page view:', error);
+(function() {
+  try {
+    var d = atob('${encodedEndpoint}');
+    var p = { u: window.location.href, r: document.referrer };
+    var b = new Blob([JSON.stringify({ data: p })], { type: 'application/json' });
+    if (navigator.sendBeacon) {
+      navigator.sendBeacon(d, b);
     }
+  } catch(e) {
+    // Fail silently if anything goes wrong.
   }
-  trackPageView();
+})();
 <\/script>
             `.trim();
             trackingScriptBlock.textContent = scriptContent;
@@ -160,13 +163,11 @@
                     domainInput.value = '';
                     fetchTrackedDomains(); // Refresh the list
                 } else {
-                    // Improved error handling: check if the response is JSON
                     const contentType = response.headers.get("content-type");
                     if (contentType && contentType.indexOf("application/json") !== -1) {
                         const { message } = await response.json();
                         throw new Error(message || 'Failed to add domain.');
                     } else {
-                        // If not JSON, it's likely an HTML error page from Vercel
                         throw new Error('Server returned an unexpected error. Check the function logs.');
                     }
                 }
@@ -181,7 +182,7 @@
 
         async function fetchAnalytics() {
             try {
-                const response = await fetch('/api/analytics');
+                const response = await fetch('/api/bpx'); // Use the new endpoint to fetch data
                 const data = await response.json();
 
                 if (loadingState) loadingState.remove();
