@@ -86,24 +86,38 @@ module.exports = async function handler(req, res) {
 
             // Handle request for graph data
             if (view === 'graph') {
-                let format;
+                let format, interval;
                 switch (period) {
-                    case 'monthly': format = '%Y-%m'; break;
-                    case 'yearly': format = '%Y'; break;
-                    default: format = '%Y-%m-%d'; break;
+                    case 'weekly':
+                        format = '%Y-%m-%d'; // Group by day
+                        interval = '-7 days';
+                        break;
+                    case 'monthly':
+                        format = '%Y-%m-%d'; // Group by day
+                        interval = '-30 days';
+                        break;
+                    case 'yearly':
+                        format = '%Y-%m'; // Group by month
+                        interval = '-1 year';
+                        break;
+                    default: // daily
+                        format = '%Y-%m-%d %H:00'; // Group by hour
+                        interval = '-24 hours';
+                        break;
                 }
 
                 let sql = `
                     SELECT
                         strftime(?, timestamp) as date,
                         COUNT(*) as total_views,
-                        SUM(is_unique) as unique_views
+                        SUM(CASE WHEN is_unique = 1 THEN 1 ELSE 0 END) as unique_views
                     FROM analytics_timeseries
+                    WHERE timestamp >= datetime('now', ?)
                 `;
-                const args = [format];
+                const args = [format, interval];
 
                 if (domain && domain !== 'all') {
-                    sql += ` WHERE domain = ?`;
+                    sql += ` AND domain = ?`;
                     args.push(domain);
                 }
 
