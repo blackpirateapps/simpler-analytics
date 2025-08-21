@@ -255,6 +255,7 @@
                         return `
                         <tr class="domain-item border-b border-gray-800 hover:bg-gray-800/50 transition-colors">
                             <td class="p-3 text-cyan-400 url-path" title="${page.url}">${path}</td>
+                            <td class="p-3 text-right text-cyan-400 font-semibold">${(page.unique_views || 0).toLocaleString()}</td>
                             <td class="p-3 text-right text-amber-400 font-semibold">${page.views.toLocaleString()}</td>
                         </tr>
                         `;
@@ -269,6 +270,7 @@
                                 <thead>
                                     <tr class="border-b border-gray-700 text-left">
                                         <th class="p-3 font-medium text-gray-400">PATH</th>
+                                        <th class="p-3 font-medium text-gray-400 text-right">UNIQUES</th>
                                         <th class="p-3 font-medium text-gray-400 text-right">VIEWS</th>
                                     </tr>
                                 </thead>
