@@ -57,12 +57,6 @@
             background-color: #6ee7b7;
             color: #111827;
         }
-        .typing-cursor {
-            display: inline-block;
-            background-color: #6ee7b7;
-            width: 10px;
-            animation: blink 1s step-end infinite;
-        }
     </style>
 </head>
 <body class="bg-gray-900 text-gray-300 antialiased">
@@ -99,7 +93,7 @@
                     <div class="p-4">
                         <p class="text-gray-500 text-sm mb-4">// Add to &lt;body&gt; on sites to track.</p>
                         <div class="relative">
-                            <pre><code id="tracking-script-block" class="code-block text-xs"><span id="script-text"></span><span id="script-cursor" class="typing-cursor">&nbsp;</span></code></pre>
+                            <pre><code id="tracking-script-block" class="code-block text-xs"></code></pre>
                             <button id="copy-script-button" class="absolute top-2 right-2 bg-gray-700 text-gray-300 text-xs font-semibold px-2 py-1 rounded hover:bg-gray-600 transition">COPY</button>
                         </div>
                     </div>
@@ -221,22 +215,21 @@
 <\/script>`;
             
             fullTrackingScript = scriptContent;
+            trackingScriptBlock.innerHTML = ''; // Clear previous content
 
-            const textElement = document.getElementById('script-text');
-            const cursorElement = document.getElementById('script-cursor');
-            textElement.textContent = '';
-            let i = 0;
+            const lines = scriptContent.split('\n');
+            lines.forEach((line, index) => {
+                const span = document.createElement('span');
+                span.textContent = line + '\n';
+                span.style.opacity = '0';
+                span.style.display = 'block';
+                span.style.transition = 'opacity 0.3s ease-in-out';
+                trackingScriptBlock.appendChild(span);
 
-            function type() {
-                if (i < scriptContent.length) {
-                    textElement.textContent += scriptContent.charAt(i);
-                    i++;
-                    setTimeout(type, 15); // Adjust typing speed here
-                } else {
-                    if(cursorElement) cursorElement.style.display = 'none'; // Hide cursor when done
-                }
-            }
-            type();
+                setTimeout(() => {
+                    span.style.opacity = '1';
+                }, index * 100); // Stagger the animation
+            });
         }
 
         copyScriptButton.addEventListener('click', () => {
