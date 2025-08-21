@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analytics Dashboard</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: #f0f2f5;
+            color: #1c1e21;
+            margin: 0;
+            padding: 2rem;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            text-align: center;
+        }
+        .container {
+            background-color: #fff;
+            padding: 2rem 3rem;
+            border-radius: 1rem;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            max-width: 500px;
+            width: 100%;
+        }
+        h1 {
+            font-size: 2rem;
+            margin-bottom: 1rem;
+            color: #1877f2;
+        }
+        p {
+            font-size: 1.2rem;
+            margin-bottom: 2rem;
+        }
+        .views {
+            font-size: 4rem;
+            font-weight: 600;
+            color: #333;
+        }
+        .footer {
+            margin-top: 2rem;
+            font-size: 0.9rem;
+            color: #606770;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Webpage Analytics</h1>
+        <p>Total page views:</p>
+        <div class="views" id="view-count">...</div>
+        <div class="footer">
+            This dashboard is public and updated in real-time.
+        </div>
+    </div>
+
+    <script>
+        // This script will track the view and fetch the total views.
+        async function trackView() {
+            try {
+                // Send a POST request to our analytics endpoint to record the new view.
+                await fetch('/api/analytics', { method: 'POST' });
+
+                // Fetch the total views to display on the page.
+                const response = await fetch('/api/analytics');
+                const data = await response.json();
+                
+                // Update the view count on the page
+                document.getElementById('view-count').textContent = data.views;
+            } catch (error) {
+                console.error('Error tracking or fetching views:', error);
+                document.getElementById('view-count').textContent = 'Error';
+            }
+        }
+
+        // Call the function when the page loads.
+        trackView();
+    </script>
+</body>
+</html>
+
