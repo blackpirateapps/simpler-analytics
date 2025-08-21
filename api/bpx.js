@@ -6,14 +6,26 @@ const client = createClient({
     authToken: process.env.TURSO_AUTH_TOKEN,
 });
 
+// Helper function to set CORS headers
+const setCorsHeaders = (res) => {
+    res.setHeader('Access-Control-Allow-Origin', '*'); // Allow any origin
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+};
+
 module.exports = async function handler(req, res) {
+    // Set CORS headers for all responses
+    setCorsHeaders(res);
+
+    // Handle the browser's preflight request
+    if (req.method === 'OPTIONS') {
+        return res.status(204).end();
+    }
+
     try {
         if (req.method === 'POST') {
-            // The new script sends a nested payload: { data: { u: "url" } }
             const { data } = req.body;
-            const url = data ? data.u : null; // Get URL from the 'u' property
-
-            console.log(`Received tracking request for URL: ${url || 'Not provided'}`);
+            const url = data ? data.u : null;
 
             if (!url) {
                 return res.status(400).json({ message: 'URL is required.' });
@@ -21,48 +33,33 @@ module.exports = async function handler(req, res) {
 
             let domain;
             try {
-                // Normalize domain by removing 'www.' prefix for matching purposes
                 domain = new URL(url).hostname.replace(/^www\./, '');
             } catch (error) {
-                console.error(`Invalid URL format received: ${url}`);
                 return res.status(400).json({ message: 'Invalid URL format.' });
             }
 
-            console.log(`Checking for allowed domain: ${domain}`);
-
-            // First, check if the domain is in the allowed list
             const checkResult = await client.execute({
                 sql: "SELECT 1 FROM allowed_domains WHERE domain = ?",
                 args: [domain],
             });
 
-            // If the domain is not found, reject the request
             if (checkResult.rows.length === 0) {
-                console.warn(`Domain not allowed: ${domain} for URL: ${url}`);
                 return res.status(403).json({ message: `Domain '${domain}' is not tracked.` });
             }
             
-            console.log(`Domain is allowed. Attempting to track view for: ${url}`);
-
-            // If the domain is allowed, insert a new row for the URL on first view,
-            // or update the view count on subsequent views.
             await client.execute({
                 sql: `
                     INSERT INTO page_views (url, domain, views) VALUES (?, ?, 1)
                     ON CONFLICT(url) DO UPDATE SET views = views + 1;
                 `,
-                // We store the original domain (with www. if present) for display purposes
                 args: [url, new URL(url).hostname],
             });
 
-            // sendBeacon doesn't need a response, but we send one for direct API calls.
             return res.status(200).json({ message: 'View tracked.' });
 
         } else if (req.method === 'GET') {
-            // Get all page view data
             const result = await client.execute("SELECT url, domain, views FROM page_views");
 
-            // Group the results by domain for the dashboard UI
             const analyticsByDomain = result.rows.reduce((acc, row) => {
                 const { domain, url, views } = row;
                 if (!acc[domain]) {
@@ -74,11 +71,10 @@ module.exports = async function handler(req, res) {
 
             return res.status(200).json(analyticsByDomain);
         } else {
-            res.setHeader('Allow', ['GET', 'POST']);
+            res.setHeader('Allow', ['GET', 'POST', 'OPTIONS']);
             return res.status(405).end(`Method ${req.method} Not Allowed`);
         }
     } catch (error) {
-        // This is the crucial part: catch any error and report it clearly.
         console.error('A critical error occurred in the analytics function:', error);
         return res.status(500).json({ message: `Internal Server Error: ${error.message}` });
     }
