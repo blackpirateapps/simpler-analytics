@@ -79,22 +79,31 @@
         // --- SCRIPT SNIPPET & COPY ---
 
         function generateTrackingScript() {
-            // The new, less obvious endpoint. We'll Base64 encode this for the script.
-            const endpoint = '/api/bpx';
+            // Construct the full, absolute URL to the API endpoint
+            const endpoint = `${window.location.origin}/api/bpx`;
             const encodedEndpoint = btoa(endpoint);
 
             const scriptContent = `
 <script>
 (function() {
   try {
-    var d = atob('${encodedEndpoint}');
-    var p = { u: window.location.href, r: document.referrer };
-    var b = new Blob([JSON.stringify({ data: p })], { type: 'application/json' });
-    if (navigator.sendBeacon) {
-      navigator.sendBeacon(d, b);
+    var endpoint = atob('${encodedEndpoint}');
+    var payload = { data: { u: window.location.href, r: document.referrer } };
+    var blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
+
+    if (navigator.sendBeacon && navigator.sendBeacon(endpoint, blob)) {
+      return;
+    } else {
+      fetch(endpoint, {
+        method: 'POST',
+        body: blob,
+        headers: { 'Content-Type': 'application/json' },
+        mode: 'cors',
+        keepalive: true
+      });
     }
   } catch(e) {
-    // Fail silently if anything goes wrong.
+    console.error('Analytics script failed:', e);
   }
 })();
 <\/script>
@@ -236,20 +245,5 @@
         fetchTrackedDomains();
         fetchAnalytics();
     </script>
-    
-    <script>
-(function() {
-  try {
-    var d = atob('L2FwaS9icHg=');
-    var p = { u: window.location.href, r: document.referrer };
-    var b = new Blob([JSON.stringify({ data: p })], { type: 'application/json' });
-    if (navigator.sendBeacon) {
-      navigator.sendBeacon(d, b);
-    }
-  } catch(e) {
-    // Fail silently if anything goes wrong.
-  }
-})();
-</script>
 </body>
 </html>
