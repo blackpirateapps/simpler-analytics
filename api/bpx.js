@@ -51,16 +51,27 @@ module.exports = async function handler(req, res) {
             if (ip && userAgent) {
                 const hashInput = `${ip}-${userAgent}-${today}`;
                 const visitorHash = crypto.createHash('sha256').update(hashInput).digest('hex');
+                console.log(`[Analytics Debug] Generated visitor hash: ${visitorHash}`);
 
                 try {
+                    console.log("[Analytics Debug] Attempting to insert new visitor hash...");
                     await client.execute({
                         sql: "INSERT INTO daily_visitor_hashes (visitor_hash, day) VALUES (?, ?)",
                         args: [visitorHash, today],
                     });
                     isUnique = true;
+                    console.log("[Analytics Debug] SUCCESS: Visitor is unique for today.");
                 } catch (error) {
-                    if (!error.message.includes('UNIQUE constraint failed')) throw error;
+                    if (error.message.includes('UNIQUE constraint failed')) {
+                        console.log("[Analytics Debug] INFO: Visitor already recorded today.");
+                    } else {
+                        // Re-throw other unexpected errors
+                        console.error("[Analytics Debug] ERROR: An unexpected database error occurred while checking uniqueness.", error);
+                        throw error;
+                    }
                 }
+            } else {
+                console.log("[Analytics Debug] WARN: Could not determine IP or User-Agent. Cannot track uniqueness.");
             }
 
             // --- Update Database ---
