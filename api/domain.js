@@ -36,7 +36,11 @@ module.exports = async function handler(req, res) {
             return res.status(405).end(`Method ${req.method} Not Allowed`);
         }
     } catch (error) {
+        // Log the detailed error on the server for debugging
         console.error('Error in domains function:', error);
-        return res.status(500).json({ error: 'Internal Server Error' });
+        
+        // Send a more descriptive error message back to the client
+        const errorMessage = error.message || 'An unknown database error occurred.';
+        return res.status(500).json({ message: `Internal Server Error: ${errorMessage}` });
     }
 }
