@@ -49,9 +49,10 @@ module.exports = async function handler(req, res) {
             const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
 
             if (ip && userAgent) {
-                const hashInput = `${ip}-${userAgent}-${today}`;
+                // The hash now includes the URL, making it unique per page, per day.
+                const hashInput = `${ip}-${userAgent}-${today}-${url}`;
                 const visitorHash = crypto.createHash('sha256').update(hashInput).digest('hex');
-                console.log(`[Analytics Debug] Generated visitor hash: ${visitorHash}`);
+                console.log(`[Analytics Debug] Generated visitor hash for URL: ${visitorHash}`);
 
                 try {
                     console.log("[Analytics Debug] Attempting to insert new visitor hash...");
@@ -60,10 +61,10 @@ module.exports = async function handler(req, res) {
                         args: [visitorHash, today],
                     });
                     isUnique = true;
-                    console.log("[Analytics Debug] SUCCESS: Visitor is unique for today.");
+                    console.log("[Analytics Debug] SUCCESS: Visitor is unique for this page today.");
                 } catch (error) {
                     if (error.message.includes('UNIQUE constraint failed')) {
-                        console.log("[Analytics Debug] INFO: Visitor already recorded today.");
+                        console.log("[Analytics Debug] INFO: Visitor already recorded for this page today.");
                     } else {
                         // Re-throw other unexpected errors
                         console.error("[Analytics Debug] ERROR: An unexpected database error occurred while checking uniqueness.", error);
