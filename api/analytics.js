@@ -7,16 +7,25 @@ const client = createClient({
     authToken: process.env.TURSO_AUTH_TOKEN,
 });
 
-// Helper function to create the table if it doesn't exist
+// Helper function to create the tables if they don't exist
 async function setupDatabase() {
     try {
+        // Create a table for general analytics like total views
         await client.execute(`
             CREATE TABLE IF NOT EXISTS analytics (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                type TEXT NOT NULL,
+                type TEXT NOT NULL UNIQUE,
                 count INTEGER NOT NULL
             );
         `);
+        
+        // Create a table to store unique IP addresses that have visited
+        await client.execute(`
+            CREATE TABLE IF NOT EXISTS ip_views (
+                ip TEXT PRIMARY KEY
+            );
+        `);
+
         // Check if a 'views' record exists, if not, create one.
         const result = await client.execute({
             sql: "SELECT count FROM analytics WHERE type = ?",
@@ -29,7 +38,7 @@ async function setupDatabase() {
                 args: ["views", 0],
             });
         }
-    } catch (error) {
+    } catch (error)
         console.error("Error setting up database:", error);
     }
 }
@@ -40,14 +49,43 @@ setupDatabase();
 export default async function handler(req, res) {
     try {
         if (req.method === 'POST') {
-            // Increment the view count
-            await client.execute({
-                sql: "UPDATE analytics SET count = count + 1 WHERE type = ?",
-                args: ["views"],
-            });
-            return res.status(200).json({ message: 'View tracked.' });
+            // Get the user's IP address from the request headers.
+            // 'x-forwarded-for' is the standard header for identifying the originating IP address.
+            const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+
+            if (!ip) {
+                return res.status(400).json({ message: 'Could not identify IP address.' });
+            }
+
+            try {
+                // Attempt to insert the new IP address.
+                // The PRIMARY KEY constraint on the 'ip' column will cause this to fail
+                // if the IP address already exists, which is what we want.
+                await client.execute({
+                    sql: "INSERT INTO ip_views (ip) VALUES (?)",
+                    args: [ip],
+                });
+
+                // If the insert was successful (meaning it's a new IP), increment the view count.
+                await client.execute({
+                    sql: "UPDATE analytics SET count = count + 1 WHERE type = ?",
+                    args: ["views"],
+                });
+
+                return res.status(200).json({ message: 'New view tracked.' });
+
+            } catch (error) {
+                // This error is expected if the IP already exists (due to UNIQUE constraint).
+                // We can safely ignore it and just report that the view was not double-counted.
+                if (error.code === 'SQLITE_CONSTRAINT_PRIMARYKEY' || error.message.includes('UNIQUE constraint failed')) {
+                    return res.status(200).json({ message: 'IP has already been recorded.' });
+                }
+                // If it's a different error, we should log it.
+                throw error;
+            }
+
         } else if (req.method === 'GET') {
-            // Get the total view count
+            // Get the total unique view count
             const result = await client.execute({
                 sql: "SELECT count FROM analytics WHERE type = ?",
                 args: ["views"],
