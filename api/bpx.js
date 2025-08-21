@@ -53,22 +53,24 @@ module.exports = async function handler(req, res) {
                 const visitorHash = crypto.createHash('sha256').update(hashInput).digest('hex');
 
                 try {
-                    // Attempt to insert the new hash. This will fail if the hash already exists
-                    // due to the PRIMARY KEY constraint, which is what we want.
                     await client.execute({
-                        sql: "INSERT INTO daily_unique_visitors (visitor_hash, day) VALUES (?, ?)",
+                        sql: "INSERT INTO daily_visitor_hashes (visitor_hash, day) VALUES (?, ?)",
                         args: [visitorHash, today],
                     });
-                    isUnique = true; // If insert succeeds, it's a unique visitor
+                    isUnique = true;
                 } catch (error) {
-                    // We expect a "UNIQUE constraint failed" error for repeat visitors, which we can ignore.
-                    if (!error.message.includes('UNIQUE constraint failed')) {
-                        throw error; // Re-throw other unexpected errors
-                    }
+                    if (!error.message.includes('UNIQUE constraint failed')) throw error;
                 }
             }
 
             // --- Update Database ---
+            // 1. Log the raw event for historical analysis
+            await client.execute({
+                sql: "INSERT INTO analytics_timeseries (url, domain, is_unique) VALUES (?, ?, ?)",
+                args: [url, new URL(url).hostname, isUnique],
+            });
+
+            // 2. Update the summary table for quick lookups
             await client.execute({
                 sql: `
                     INSERT INTO page_views (url, domain, views, unique_views) VALUES (?, ?, 1, ?)
@@ -82,6 +84,40 @@ module.exports = async function handler(req, res) {
             return res.status(200).json({ message: 'View tracked.' });
 
         } else if (req.method === 'GET') {
+            const { view, period } = req.query;
+
+            // Handle request for graph data
+            if (view === 'graph') {
+                let format;
+                switch (period) {
+                    case 'monthly':
+                        format = '%Y-%m';
+                        break;
+                    case 'yearly':
+                        format = '%Y';
+                        break;
+                    default: // daily
+                        format = '%Y-%m-%d';
+                        break;
+                }
+
+                const graphData = await client.execute({
+                    sql: `
+                        SELECT
+                            strftime(?, timestamp) as date,
+                            COUNT(*) as total_views,
+                            SUM(is_unique) as unique_views
+                        FROM analytics_timeseries
+                        GROUP BY date
+                        ORDER BY date ASC;
+                    `,
+                    args: [format],
+                });
+
+                return res.status(200).json(graphData.rows);
+            }
+
+            // Default: Handle request for summary table data
             const result = await client.execute("SELECT url, domain, views, unique_views FROM page_views");
             const analyticsByDomain = result.rows.reduce((acc, row) => {
                 const { domain, url, views, unique_views } = row;
