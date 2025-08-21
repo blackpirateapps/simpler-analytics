@@ -81,13 +81,12 @@
         function generateTrackingScript() {
             // Construct the full, absolute URL to the API endpoint
             const endpoint = `${window.location.origin}/api/bpx`;
-            const encodedEndpoint = btoa(endpoint);
 
             const scriptContent = `
 <script>
 (function() {
   try {
-    var endpoint = atob('${encodedEndpoint}');
+    var endpoint = '${endpoint}';
     var payload = { data: { u: window.location.href, r: document.referrer } };
     var blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
 
