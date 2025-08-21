@@ -4,80 +4,166 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Analytics Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-            background-color: #f0f2f5;
-            color: #1c1e21;
-            margin: 0;
-            padding: 2rem;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            text-align: center;
+            font-family: 'Inter', sans-serif;
         }
-        .container {
-            background-color: #fff;
-            padding: 2rem 3rem;
-            border-radius: 1rem;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-            max-width: 500px;
-            width: 100%;
-        }
-        h1 {
-            font-size: 2rem;
-            margin-bottom: 1rem;
-            color: #1877f2;
-        }
-        p {
-            font-size: 1.2rem;
-            margin-bottom: 2rem;
-        }
-        .views {
-            font-size: 4rem;
-            font-weight: 600;
-            color: #333;
-        }
-        .footer {
-            margin-top: 2rem;
-            font-size: 0.9rem;
-            color: #606770;
-        }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
     </style>
 </head>
-<body>
-    <div class="container">
-        <h1>Webpage Analytics</h1>
-        <p>Total page views:</p>
-        <div class="views" id="view-count">...</div>
-        <div class="footer">
-            This dashboard is public and updated in real-time.
-        </div>
+<body class="bg-gray-50 text-gray-800">
+
+    <div class="container mx-auto px-4 py-8">
+        <header class="text-center mb-12">
+            <h1 class="text-4xl font-bold text-gray-900">Analytics Dashboard</h1>
+            <p class="text-lg text-gray-600 mt-2">Page view statistics for all tracked sites.</p>
+        </header>
+
+        <!-- Domain Management Section -->
+        <section class="max-w-2xl mx-auto bg-white p-6 rounded-lg shadow-md border border-gray-200 mb-12">
+            <h2 class="text-2xl font-semibold mb-4">Manage Tracked Domains</h2>
+            <form id="add-domain-form" class="flex items-center space-x-2 mb-4">
+                <input type="text" id="domain-input" placeholder="example.com" class="flex-grow p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition" required>
+                <button type="submit" class="bg-blue-600 text-white font-semibold px-4 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition">Add Domain</button>
+            </form>
+            <div id="form-message" class="text-sm min-h-[1.25rem]"></div>
+            
+            <h3 class="text-lg font-semibold mt-6 mb-2">Currently Tracked Domains:</h3>
+            <ul id="tracked-domains-list" class="list-disc list-inside text-gray-700 bg-gray-50 p-4 rounded-md">
+                <li>Loading...</li>
+            </ul>
+        </section>
+
+
+        <main id="analytics-container" class="space-y-8">
+            <div id="loading-state" class="text-center">
+                <p class="text-gray-500">Loading analytics data...</p>
+            </div>
+        </main>
+
+        <footer class="text-center mt-12 text-gray-500">
+            <p>Data is updated in real-time.</p>
+        </footer>
     </div>
 
     <script>
-        // This script will track the view and fetch the total views.
-        async function trackView() {
-            try {
-                // Send a POST request to our analytics endpoint to record the new view.
-                await fetch('/api/analytics', { method: 'POST' });
+        const analyticsContainer = document.getElementById('analytics-container');
+        const loadingState = document.getElementById('loading-state');
+        const addDomainForm = document.getElementById('add-domain-form');
+        const domainInput = document.getElementById('domain-input');
+        const formMessage = document.getElementById('form-message');
+        const trackedDomainsList = document.getElementById('tracked-domains-list');
 
-                // Fetch the total views to display on the page.
-                const response = await fetch('/api/analytics');
-                const data = await response.json();
-                
-                // Update the view count on the page
-                document.getElementById('view-count').textContent = data.views;
+        // --- DOMAIN MANAGEMENT ---
+        
+        async function fetchTrackedDomains() {
+            try {
+                const response = await fetch('/api/domains');
+                const { domains } = await response.json();
+                trackedDomainsList.innerHTML = ''; // Clear loading state
+                if (domains.length > 0) {
+                    domains.sort().forEach(domain => {
+                        const li = document.createElement('li');
+                        li.textContent = domain;
+                        trackedDomainsList.appendChild(li);
+                    });
+                } else {
+                    trackedDomainsList.innerHTML = '<li>No domains are currently being tracked.</li>';
+                }
             } catch (error) {
-                console.error('Error tracking or fetching views:', error);
-                document.getElementById('view-count').textContent = 'Error';
+                console.error('Error fetching domains:', error);
+                trackedDomainsList.innerHTML = '<li>Error loading domains.</li>';
             }
         }
 
-        // Call the function when the page loads.
-        trackView();
+        addDomainForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const domain = domainInput.value.trim();
+            if (!domain) return;
+
+            formMessage.textContent = 'Adding...';
+            formMessage.className = 'text-sm text-gray-500';
+
+            try {
+                const response = await fetch('/api/domains', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ domain }),
+                });
+
+                if (response.ok) {
+                    formMessage.textContent = `Successfully added ${domain}.`;
+                    formMessage.className = 'text-sm text-green-600';
+                    domainInput.value = '';
+                    fetchTrackedDomains(); // Refresh the list
+                } else {
+                    const { message } = await response.json();
+                    throw new Error(message || 'Failed to add domain.');
+                }
+            } catch (error) {
+                console.error('Error adding domain:', error);
+                formMessage.textContent = `Error: ${error.message}`;
+                formMessage.className = 'text-sm text-red-600';
+            }
+        });
+
+        // --- ANALYTICS DISPLAY ---
+
+        async function fetchAnalytics() {
+            try {
+                const response = await fetch('/api/analytics');
+                const data = await response.json();
+
+                if (loadingState) loadingState.remove();
+                analyticsContainer.innerHTML = ''; // Clear previous data
+
+                const domains = Object.keys(data);
+
+                if (domains.length === 0) {
+                    analyticsContainer.innerHTML = '<p class="text-center text-gray-500">No analytics data to display yet.</p>';
+                    return;
+                }
+
+                domains.sort();
+
+                for (const domain of domains) {
+                    const pages = data[domain];
+                    pages.sort((a, b) => b.views - a.views);
+
+                    const domainCard = document.createElement('div');
+                    domainCard.className = 'bg-white rounded-lg shadow-md border border-gray-200 overflow-hidden';
+
+                    let pagesHtml = pages.map(page => `
+                        <li class="flex justify-between items-center p-4 hover:bg-gray-50 transition-colors duration-200">
+                            <a href="${page.url}" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline truncate pr-4" title="${page.url}">
+                                ${new URL(page.url).pathname}
+                            </a>
+                            <span class="font-semibold bg-blue-100 text-blue-800 text-sm px-3 py-1 rounded-full">${page.views.toLocaleString()} views</span>
+                        </li>
+                    `).join('');
+
+                    domainCard.innerHTML = `
+                        <div class="p-5 bg-gray-50 border-b border-gray-200">
+                            <h2 class="text-2xl font-semibold text-gray-800">${domain}</h2>
+                        </div>
+                        <ul class="divide-y divide-gray-200">
+                            ${pagesHtml}
+                        </ul>
+                    `;
+                    analyticsContainer.appendChild(domainCard);
+                }
+
+            } catch (error) {
+                console.error('Error fetching analytics:', error);
+                if (loadingState) loadingState.remove();
+                analyticsContainer.innerHTML = '<p class="text-center text-red-500">Failed to load analytics data.</p>';
+            }
+        }
+
+        // Initial data fetch on page load
+        fetchTrackedDomains();
+        fetchAnalytics();
     </script>
 </body>
 </html>
-
