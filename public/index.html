@@ -110,10 +110,11 @@
                             <select id="domain-filter" class="terminal-select text-xs bg-gray-800 border border-gray-600 rounded px-2 py-1">
                                 <option value="all">All Domains</option>
                             </select>
-                            <div class="btn-group text-xs border border-gray-600 rounded">
+                            <div class="btn-group text-xs border border-gray-600 rounded inline-flex">
                                 <button data-period="daily" class="px-2 py-1 active">Daily</button>
-                                <button data-period="monthly" class="px-2 py-1 border-l border-r border-gray-600">Monthly</button>
-                                <button data-period="yearly" class="px-2 py-1">Yearly</button>
+                                <button data-period="weekly" class="px-2 py-1 border-l border-gray-600">Weekly</button>
+                                <button data-period="monthly" class="px-2 py-1 border-l border-gray-600">Monthly</button>
+                                <button data-period="yearly" class="px-2 py-1 border-l border-gray-600">Yearly</button>
                             </div>
                         </div>
                     </div>
@@ -197,7 +198,8 @@
         // --- SCRIPT SNIPPET & COPY ---
         function generateTrackingScript() {
             const endpoint = `${window.location.origin}/api/bpx`;
-            trackingScriptBlock.textContent = `<script>
+            // This template string is now formatted without leading whitespace to prevent display issues.
+            const scriptContent = `<script>
 (async function() {
   try {
     const endpoint = '${endpoint}';
@@ -210,7 +212,8 @@
     });
   } catch(e) { console.error('Analytics script failed:', e); }
 })();
-<\/script>`.trim();
+<\/script>`;
+            trackingScriptBlock.textContent = scriptContent;
         }
 
         copyScriptButton.addEventListener('click', () => {
