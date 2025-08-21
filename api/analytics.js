@@ -10,6 +10,7 @@ module.exports = async function handler(req, res) {
     try {
         if (req.method === 'POST') {
             const { url } = req.body;
+            console.log(`Received tracking request for URL: ${url || 'Not provided'}`);
 
             if (!url) {
                 return res.status(400).json({ message: 'URL is required.' });
@@ -20,8 +21,11 @@ module.exports = async function handler(req, res) {
                 // Normalize domain by removing 'www.' prefix for matching purposes
                 domain = new URL(url).hostname.replace(/^www\./, '');
             } catch (error) {
+                console.error(`Invalid URL format received: ${url}`);
                 return res.status(400).json({ message: 'Invalid URL format.' });
             }
+
+            console.log(`Checking for allowed domain: ${domain}`);
 
             // First, check if the domain is in the allowed list
             const checkResult = await client.execute({
@@ -31,9 +35,12 @@ module.exports = async function handler(req, res) {
 
             // If the domain is not found, reject the request
             if (checkResult.rows.length === 0) {
+                console.warn(`Domain not allowed: ${domain} for URL: ${url}`);
                 return res.status(403).json({ message: `Domain '${domain}' is not tracked.` });
             }
             
+            console.log(`Domain is allowed. Attempting to track view for: ${url}`);
+
             // If the domain is allowed, insert a new row for the URL on first view,
             // or update the view count on subsequent views.
             await client.execute({
@@ -67,7 +74,8 @@ module.exports = async function handler(req, res) {
             return res.status(405).end(`Method ${req.method} Not Allowed`);
         }
     } catch (error) {
-        console.error('Error in analytics function:', error);
-        return res.status(500).json({ error: 'Internal Server Error' });
+        // This is the crucial part: catch any error and report it clearly.
+        console.error('A critical error occurred in the analytics function:', error);
+        return res.status(500).json({ message: `Internal Server Error: ${error.message}` });
     }
 }
