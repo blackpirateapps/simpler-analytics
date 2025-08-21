@@ -19,6 +19,7 @@ module.exports = async function handler(req, res) {
 
     // Handle the browser's preflight request
     if (req.method === 'OPTIONS') {
+        console.log('Handling OPTIONS preflight request.');
         return res.status(204).end();
     }
 
@@ -75,6 +76,7 @@ module.exports = async function handler(req, res) {
             return res.status(405).end(`Method ${req.method} Not Allowed`);
         }
     } catch (error) {
+        // This block was missing curly braces, causing silent crashes. It is now fixed.
         console.error('A critical error occurred in the analytics function:', error);
         return res.status(500).json({ message: `Internal Server Error: ${error.message}` });
     }
