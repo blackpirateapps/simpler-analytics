@@ -10,6 +10,15 @@
             font-family: 'Inter', sans-serif;
         }
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        .code-block {
+            background-color: #1f2937; /* gray-800 */
+            color: #d1d5db; /* gray-300 */
+            padding: 1rem;
+            border-radius: 0.5rem;
+            font-family: monospace;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
     </style>
 </head>
 <body class="bg-gray-50 text-gray-800">
@@ -35,6 +44,16 @@
             </ul>
         </section>
 
+        <!-- Tracking Snippet Section -->
+        <section class="max-w-2xl mx-auto bg-white p-6 rounded-lg shadow-md border border-gray-200 mb-12">
+            <h2 class="text-2xl font-semibold mb-4">Tracking Snippet</h2>
+            <p class="text-gray-600 mb-4">Add this script to the bottom of the `&lt;body&gt;` tag on any site you want to track.</p>
+            <div class="relative">
+                <pre><code id="tracking-script-block" class="code-block"></code></pre>
+                <button id="copy-script-button" class="absolute top-2 right-2 bg-gray-600 text-white text-xs font-semibold px-3 py-1 rounded-md hover:bg-gray-700 transition">Copy</button>
+            </div>
+        </section>
+
 
         <main id="analytics-container" class="space-y-8">
             <div id="loading-state" class="text-center">
@@ -54,6 +73,49 @@
         const domainInput = document.getElementById('domain-input');
         const formMessage = document.getElementById('form-message');
         const trackedDomainsList = document.getElementById('tracked-domains-list');
+        const trackingScriptBlock = document.getElementById('tracking-script-block');
+        const copyScriptButton = document.getElementById('copy-script-button');
+
+        // --- SCRIPT SNIPPET & COPY ---
+
+        function generateTrackingScript() {
+            const apiUrl = `${window.location.origin}/api/analytics`;
+            const scriptContent = `
+<script>
+  async function trackPageView() {
+    try {
+      await fetch('${apiUrl}', { 
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: window.location.href }),
+      });
+    } catch (error) {
+      console.error('Error tracking page view:', error);
+    }
+  }
+  trackPageView();
+<\/script>
+            `.trim();
+            trackingScriptBlock.textContent = scriptContent;
+        }
+
+        copyScriptButton.addEventListener('click', () => {
+            const scriptText = trackingScriptBlock.textContent;
+            const textArea = document.createElement('textarea');
+            textArea.value = scriptText;
+            document.body.appendChild(textArea);
+            textArea.select();
+            try {
+                document.execCommand('copy');
+                copyScriptButton.textContent = 'Copied!';
+                setTimeout(() => { copyScriptButton.textContent = 'Copy'; }, 2000);
+            } catch (err) {
+                console.error('Failed to copy script: ', err);
+                copyScriptButton.textContent = 'Error';
+            }
+            document.body.removeChild(textArea);
+        });
+
 
         // --- DOMAIN MANAGEMENT ---
         
@@ -98,8 +160,15 @@
                     domainInput.value = '';
                     fetchTrackedDomains(); // Refresh the list
                 } else {
-                    const { message } = await response.json();
-                    throw new Error(message || 'Failed to add domain.');
+                    // Improved error handling: check if the response is JSON
+                    const contentType = response.headers.get("content-type");
+                    if (contentType && contentType.indexOf("application/json") !== -1) {
+                        const { message } = await response.json();
+                        throw new Error(message || 'Failed to add domain.');
+                    } else {
+                        // If not JSON, it's likely an HTML error page from Vercel
+                        throw new Error('Server returned an unexpected error. Check the function logs.');
+                    }
                 }
             } catch (error) {
                 console.error('Error adding domain:', error);
@@ -162,6 +231,7 @@
         }
 
         // Initial data fetch on page load
+        generateTrackingScript();
         fetchTrackedDomains();
         fetchAnalytics();
     </script>
