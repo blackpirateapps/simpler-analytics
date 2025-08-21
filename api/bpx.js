@@ -64,13 +64,11 @@ module.exports = async function handler(req, res) {
             }
 
             // --- Update Database ---
-            // 1. Log the raw event for historical analysis
             await client.execute({
                 sql: "INSERT INTO analytics_timeseries (url, domain, is_unique) VALUES (?, ?, ?)",
                 args: [url, new URL(url).hostname, isUnique],
             });
 
-            // 2. Update the summary table for quick lookups
             await client.execute({
                 sql: `
                     INSERT INTO page_views (url, domain, views, unique_views) VALUES (?, ?, 1, ?)
@@ -84,36 +82,34 @@ module.exports = async function handler(req, res) {
             return res.status(200).json({ message: 'View tracked.' });
 
         } else if (req.method === 'GET') {
-            const { view, period } = req.query;
+            const { view, period, domain } = req.query;
 
             // Handle request for graph data
             if (view === 'graph') {
                 let format;
                 switch (period) {
-                    case 'monthly':
-                        format = '%Y-%m';
-                        break;
-                    case 'yearly':
-                        format = '%Y';
-                        break;
-                    default: // daily
-                        format = '%Y-%m-%d';
-                        break;
+                    case 'monthly': format = '%Y-%m'; break;
+                    case 'yearly': format = '%Y'; break;
+                    default: format = '%Y-%m-%d'; break;
                 }
 
-                const graphData = await client.execute({
-                    sql: `
-                        SELECT
-                            strftime(?, timestamp) as date,
-                            COUNT(*) as total_views,
-                            SUM(is_unique) as unique_views
-                        FROM analytics_timeseries
-                        GROUP BY date
-                        ORDER BY date ASC;
-                    `,
-                    args: [format],
-                });
+                let sql = `
+                    SELECT
+                        strftime(?, timestamp) as date,
+                        COUNT(*) as total_views,
+                        SUM(is_unique) as unique_views
+                    FROM analytics_timeseries
+                `;
+                const args = [format];
 
+                if (domain && domain !== 'all') {
+                    sql += ` WHERE domain = ?`;
+                    args.push(domain);
+                }
+
+                sql += ` GROUP BY date ORDER BY date ASC;`;
+                
+                const graphData = await client.execute({ sql, args });
                 return res.status(200).json(graphData.rows);
             }
 

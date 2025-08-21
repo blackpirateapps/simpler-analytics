@@ -31,7 +31,7 @@
             background-color: #374151;
             color: #d1d5db;
         }
-        .terminal-input {
+        .terminal-input, .terminal-select {
             background-color: transparent;
             border: none;
             outline: none;
@@ -104,12 +104,17 @@
             <div class="lg:col-span-2 space-y-8">
                 <!-- Graph Section -->
                 <section class="terminal-card rounded-lg shadow-lg">
-                    <div class="terminal-header px-4 py-3 rounded-t-lg font-semibold flex justify-between items-center">
+                    <div class="terminal-header px-4 py-3 rounded-t-lg font-semibold flex flex-wrap justify-between items-center gap-4">
                         <span>[ traffic_overview ]</span>
-                        <div class="btn-group text-xs border border-gray-600 rounded">
-                            <button data-period="daily" class="px-2 py-1 active">Daily</button>
-                            <button data-period="monthly" class="px-2 py-1 border-l border-r border-gray-600">Monthly</button>
-                            <button data-period="yearly" class="px-2 py-1">Yearly</button>
+                        <div class="flex items-center gap-4">
+                            <select id="domain-filter" class="terminal-select text-xs bg-gray-800 border border-gray-600 rounded px-2 py-1">
+                                <option value="all">All Domains</option>
+                            </select>
+                            <div class="btn-group text-xs border border-gray-600 rounded">
+                                <button data-period="daily" class="px-2 py-1 active">Daily</button>
+                                <button data-period="monthly" class="px-2 py-1 border-l border-r border-gray-600">Monthly</button>
+                                <button data-period="yearly" class="px-2 py-1">Yearly</button>
+                            </div>
                         </div>
                     </div>
                     <div class="p-4">
@@ -141,6 +146,7 @@
         const copyScriptButton = document.getElementById('copy-script-button');
         const chartCanvas = document.getElementById('analyticsChart').getContext('2d');
         const btnGroup = document.querySelector('.btn-group');
+        const domainFilter = document.getElementById('domain-filter');
 
         let analyticsChart;
 
@@ -148,43 +154,26 @@
         function initializeChart() {
             analyticsChart = new Chart(chartCanvas, {
                 type: 'bar',
-                data: {
-                    labels: [],
-                    datasets: [
-                        {
-                            label: 'Total Views',
-                            data: [],
-                            backgroundColor: 'rgba(252, 165, 165, 0.5)',
-                            borderColor: 'rgba(252, 165, 165, 1)',
-                            borderWidth: 1,
-                            yAxisID: 'y'
-                        },
-                        {
-                            label: 'Unique Visitors',
-                            data: [],
-                            backgroundColor: 'rgba(134, 239, 172, 0.5)',
-                            borderColor: 'rgba(134, 239, 172, 1)',
-                            borderWidth: 1,
-                            type: 'line',
-                            yAxisID: 'y',
-                            tension: 0.2
-                        }
-                    ]
-                },
+                data: { labels: [], datasets: [
+                    { label: 'Total Views', data: [], backgroundColor: 'rgba(99, 102, 241, 0.6)', borderColor: 'rgba(99, 102, 241, 1)', yAxisID: 'y' },
+                    { label: 'Unique Visitors', data: [], backgroundColor: 'rgba(34, 197, 94, 0.6)', borderColor: 'rgba(34, 197, 94, 1)', type: 'line', yAxisID: 'y', tension: 0.2 }
+                ]},
                 options: {
                     responsive: true,
                     scales: {
                         x: { ticks: { color: '#9ca3af' }, grid: { color: '#374151' } },
-                        y: { beginAtZero: true, ticks: { color: '#9ca3af' }, grid: { color: '#374151' } }
+                        y: { beginAtZero: true, ticks: { color: '#9ca3af', stepSize: 1 }, grid: { color: '#374151' } }
                     },
                     plugins: { legend: { labels: { color: '#d1d5db' } } }
                 }
             });
         }
 
-        async function fetchGraphData(period = 'daily') {
+        async function fetchGraphData() {
+            const period = btnGroup.querySelector('.active').dataset.period;
+            const domain = domainFilter.value;
             try {
-                const response = await fetch(`/api/bpx?view=graph&period=${period}`);
+                const response = await fetch(`/api/bpx?view=graph&period=${period}&domain=${domain}`);
                 const data = await response.json();
                 
                 analyticsChart.data.labels = data.map(d => d.date);
@@ -192,24 +181,23 @@
                 analyticsChart.data.datasets[1].data = data.map(d => d.unique_views);
                 analyticsChart.update();
             } catch (error) {
-                console.error(`Error fetching ${period} graph data:`, error);
+                console.error(`Error fetching graph data:`, error);
             }
         }
 
         btnGroup.addEventListener('click', (e) => {
             if (e.target.tagName === 'BUTTON') {
-                const period = e.target.dataset.period;
                 btnGroup.querySelector('.active').classList.remove('active');
                 e.target.classList.add('active');
-                fetchGraphData(period);
+                fetchGraphData();
             }
         });
+        domainFilter.addEventListener('change', fetchGraphData);
 
         // --- SCRIPT SNIPPET & COPY ---
         function generateTrackingScript() {
             const endpoint = `${window.location.origin}/api/bpx`;
-            trackingScriptBlock.textContent = `
-<script>
+            trackingScriptBlock.textContent = `<script>
 (async function() {
   try {
     const endpoint = '${endpoint}';
@@ -243,17 +231,29 @@
         });
 
         // --- DOMAIN MANAGEMENT ---
+        async function populateDomainFilter(domains) {
+            domainFilter.innerHTML = '<option value="all">All Domains</option>'; // Reset
+            domains.forEach(domain => {
+                const option = document.createElement('option');
+                option.value = domain;
+                option.textContent = domain;
+                domainFilter.appendChild(option);
+            });
+        }
+
         async function fetchTrackedDomains() {
             try {
                 const response = await fetch('/api/domains');
                 const { domains } = await response.json();
                 trackedDomainsList.innerHTML = '';
                 if (domains.length > 0) {
-                    domains.sort().forEach(domain => {
+                    domains.sort();
+                    domains.forEach(domain => {
                         const li = document.createElement('li');
                         li.innerHTML = `<span class="text-gray-500 mr-2">-</span>${domain}`;
                         trackedDomainsList.appendChild(li);
                     });
+                    await populateDomainFilter(domains);
                 } else {
                     trackedDomainsList.innerHTML = '<li class="text-gray-500">No domains tracked.</li>';
                 }
@@ -279,7 +279,7 @@
                     formMessage.textContent = `SUCCESS: Domain '${domain}' added.`;
                     formMessage.className = 'text-sm text-emerald-400';
                     domainInput.value = '';
-                    fetchTrackedDomains();
+                    await fetchTrackedDomains(); // Refresh domain list and filter
                 } else {
                     const { message } = await response.json();
                     throw new Error(message || 'Failed to add domain.');
@@ -296,16 +296,13 @@
             try {
                 const response = await fetch('/api/bpx');
                 const data = await response.json();
-
                 if (loadingState) loadingState.remove();
                 analyticsContainer.innerHTML = '';
-
                 const domains = Object.keys(data);
                 if (domains.length === 0) {
                     analyticsContainer.innerHTML = '<div class="terminal-card rounded-lg p-4 text-center text-gray-500">No summary data received yet.</div>';
                     return;
                 }
-
                 domains.sort();
                 for (const domain of domains) {
                     const pages = data[domain];
@@ -315,15 +312,13 @@
                     domainCard.open = true;
                     let pagesHtml = pages.map(page => {
                         const path = new URL(page.url).pathname;
-                        return `
-                        <tr class="domain-item border-b border-gray-800 hover:bg-gray-800/50 transition-colors">
+                        return `<tr class="domain-item border-b border-gray-800 hover:bg-gray-800/50 transition-colors">
                             <td class="p-3 text-cyan-400 url-path" title="${page.url}">${path}</td>
                             <td class="p-3 text-right text-cyan-400 font-semibold">${(page.unique_views || 0).toLocaleString()}</td>
                             <td class="p-3 text-right text-amber-400 font-semibold">${page.views.toLocaleString()}</td>
                         </tr>`;
                     }).join('');
-                    domainCard.innerHTML = `
-                        <summary class="terminal-header px-4 py-3 font-semibold cursor-pointer select-none">[ domain: ${domain} ]</summary>
+                    domainCard.innerHTML = `<summary class="terminal-header px-4 py-3 font-semibold cursor-pointer select-none">[ domain: ${domain} ]</summary>
                         <div class="p-2">
                             <table class="w-full text-sm">
                                 <thead>
@@ -346,12 +341,12 @@
         }
 
         // --- Initial data fetch on page load ---
-        function initializeDashboard() {
+        async function initializeDashboard() {
             generateTrackingScript();
-            fetchTrackedDomains();
+            await fetchTrackedDomains();
             initializeChart();
-            fetchGraphData('daily'); // Load daily graph by default
-            fetchAnalyticsSummary();
+            await fetchGraphData();
+            await fetchAnalyticsSummary();
         }
 
         initializeDashboard();
