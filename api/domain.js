@@ -1,4 +1,4 @@
-import { createClient } from '@libsql/client';
+const { createClient } = require('@libsql/client');
 
 // Turso database connection configuration
 const client = createClient({
@@ -6,7 +6,7 @@ const client = createClient({
     authToken: process.env.TURSO_AUTH_TOKEN,
 });
 
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
     try {
         // Handle POST request to add a new domain
         if (req.method === 'POST') {
