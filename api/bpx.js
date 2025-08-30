@@ -94,8 +94,7 @@ module.exports = async (req) => {
          try {
             const { searchParams } = new URL(req.url, `http://${req.headers.host}`);
             const view = searchParams.get('view');
-            const domainFilter = searchParams.get('domain') || 'all';
-
+            
             // --- Domain Details View ---
             if (view === 'domain_details') {
                 const domain = searchParams.get('domain');
@@ -124,8 +123,7 @@ module.exports = async (req) => {
             }
             
             // --- Domain Summary View ---
-            if (view === 'domain_summary') {
-                // *** FIX: Rewritten queries to be simpler and correct ***
+            else if (view === 'domain_summary') {
                 const queries = {
                     daily:   `SELECT domain, SUM(is_unique) as count FROM analytics_timeseries WHERE DATE(timestamp) = DATE('now') GROUP BY domain`,
                     weekly:  `SELECT domain, SUM(is_unique) as count FROM analytics_timeseries WHERE DATE(timestamp) >= DATE('now', '-7 days') GROUP BY domain`,
@@ -155,23 +153,25 @@ module.exports = async (req) => {
             }
 
             // --- Default View (Page Details Table) ---
-            const pageDetailsQuery = `
-                SELECT
-                    url,
-                    COUNT(*) as views,
-                    SUM(CASE WHEN is_unique = 1 THEN 1 ELSE 0 END) as unique_views
-                FROM analytics_timeseries
-                GROUP BY url
-            `;
-            const { rows: pageDetails } = await db.execute(pageDetailsQuery);
-            const groupedByDomain = pageDetails.reduce((acc, page) => {
-                const domain = new URL(page.url).hostname.replace(/^www\./, '');
-                if (!acc[domain]) acc[domain] = [];
-                acc[domain].push(page);
-                return acc;
-            }, {});
+            else {
+                const pageDetailsQuery = `
+                    SELECT
+                        url,
+                        COUNT(*) as views,
+                        SUM(CASE WHEN is_unique = 1 THEN 1 ELSE 0 END) as unique_views
+                    FROM analytics_timeseries
+                    GROUP BY url
+                `;
+                const { rows: pageDetails } = await db.execute(pageDetailsQuery);
+                const groupedByDomain = pageDetails.reduce((acc, page) => {
+                    const domain = new URL(page.url).hostname.replace(/^www\./, '');
+                    if (!acc[domain]) acc[domain] = [];
+                    acc[domain].push(page);
+                    return acc;
+                }, {});
 
-            return new Response(JSON.stringify(groupedByDomain), { status: 200, headers: corsHeaders });
+                return new Response(JSON.stringify(groupedByDomain), { status: 200, headers: corsHeaders });
+            }
         } catch(error) {
              console.error("GET /api/bpx: CRITICAL ERROR during data fetch:", error);
             return new Response(JSON.stringify({ message: "Internal Server Error", error: error.message }), { status: 500, headers: corsHeaders });
