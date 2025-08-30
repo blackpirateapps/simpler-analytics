@@ -3,261 +3,220 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Analytics Dashboard</title>
+    <title>Analytics</title>
     <style>
-        body { 
-            font-family: monospace; 
-            background-color: #0d1117; 
-            color: #c9d1d9; 
-            padding: 2rem;
-            max-width: 1200px;
-            margin: auto;
+        /* Minimal Terminal-like styling */
+        body {
+            background-color: #1a1a1a;
+            color: #e0e0e0;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 14px;
+            margin: 2em;
         }
-        h1, h2, h3 { 
-            color: #58a6ff; 
-            border-bottom: 1px solid #30363d;
-            padding-bottom: 0.5rem;
-            margin-top: 2rem;
+        h1, h2 {
+            color: #4CAF50; /* Green accent */
+            border-bottom: 1px solid #4CAF50;
+            padding-bottom: 5px;
+            margin-top: 2em;
         }
-        pre, code { 
-            background-color: #161b22; 
-            padding: 1rem; 
-            border: 1px solid #30363d;
-            border-radius: 6px; 
+        a {
+            color: #87CEEB; /* Sky blue links */
+            text-decoration: none;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1em;
+        }
+        th, td {
+            text-align: left;
+            padding: 8px;
+            border-bottom: 1px solid #333;
+        }
+        th {
+            color: #4CAF50;
+        }
+        #loader, #error {
+            padding: 1em;
+            border: 1px solid;
+            margin-top: 1em;
+        }
+        #loader {
+            color: #FFC107; /* Amber */
+            border-color: #FFC107;
+        }
+        #error {
+            background-color: #ff4444;
+            color: white;
+            border: none;
+        }
+        pre {
+            background-color: #222;
+            padding: 1em;
             white-space: pre-wrap;
-            word-break: break-all;
-            display: block;
-        }
-        a { color: #58a6ff; text-decoration: none; }
-        a:hover { text-decoration: underline; }
-        table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
-        th, td { padding: 0.5rem; text-align: left; border-bottom: 1px solid #30363d; }
-        th { color: #8b949e; }
-        input[type="text"] {
-            background-color: #161b22;
-            color: #c9d1d9;
-            border: 1px solid #30363d;
-            padding: 0.5rem;
-            border-radius: 6px;
+            word-wrap: break-word;
+            border: 1px solid #444;
         }
         button {
-            background-color: #21262d;
-            color: #c9d1d9;
-            border: 1px solid #30363d;
-            padding: 0.5rem 1rem;
-            border-radius: 6px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 8px 12px;
             cursor: pointer;
+            font-family: inherit;
         }
-        button:hover { background-color: #30363d; }
-        details > summary { cursor: pointer; padding: 0.5rem 0; }
+        button:hover {
+            background-color: #45a049;
+        }
+        input[type="text"] {
+            background-color: #333;
+            color: #e0e0e0;
+            border: 1px solid #555;
+            padding: 8px;
+            font-family: inherit;
+        }
     </style>
 </head>
 <body>
-
     <h1>Analytics Dashboard</h1>
+    <div id="loader">Loading analytics data...</div>
+    <div id="error" style="display:none;"></div>
 
-    <section>
-        <h2>Manage Domains</h2>
-        <form id="add-domain-form">
-            <input type="text" id="domain-input" placeholder="example.com" required>
-            <button type="submit">Add Domain</button>
-        </form>
-        <div id="form-message" style="min-height: 1.25rem; margin-top: 0.5rem;"></div>
-        <h3>Tracked Domains</h3>
-        <ul id="tracked-domains-list" style="list-style: none; padding-left: 0;"><li>Loading...</li></ul>
-    </section>
-    
-    <section>
-        <h2>Tracking Script</h2>
-        <p>// Add this to the &lt;body&gt; of sites you want to track.</p>
-        <pre><code id="tracking-script-block">Generating script...</code></pre>
-        <button id="copy-script-button" style="margin-top: 1rem;">Copy Script</button>
-    </section>
+    <div id="content" style="display:none;">
+        <h2>Add Domain to Track</h2>
+        <input type="text" id="domainInput" placeholder="example.com">
+        <button onclick="addDomain()">Add Domain</button>
 
-    <section>
-        <h2>Domain Summaries (Unique Visitors)</h2>
-        <div id="domain-summary-content"><p>Loading summaries...</p></div>
-    </section>
-
-    <section>
-        <h2>Page Details</h2>
-        <div id="analytics-container"><p>Loading page details...</p></div>
-    </section>
+        <h2>Get Tracking Script</h2>
+        <pre id="trackingScript"></pre>
+        <button onclick="copyScript()">Copy</button>
+        
+        <div id="pageViews"></div>
+    </div>
 
     <script>
-        // --- DOM Refs ---
-        const analyticsContainer = document.getElementById('analytics-container');
-        const addDomainForm = document.getElementById('add-domain-form');
-        const domainInput = document.getElementById('domain-input');
-        const formMessage = document.getElementById('form-message');
-        const trackedDomainsList = document.getElementById('tracked-domains-list');
-        const trackingScriptBlock = document.getElementById('tracking-script-block');
-        const copyScriptButton = document.getElementById('copy-script-button');
-        const domainSummaryContent = document.getElementById('domain-summary-content');
+        const loader = document.getElementById('loader');
+        const errorDiv = document.getElementById('error');
+        const contentDiv = document.getElementById('content');
+        const pageViewsDiv = document.getElementById('pageViews');
 
-        let fullTrackingScript = '';
-
-        // --- SCRIPT SNIPPET & COPY ---
-        function generateTrackingScript() {
-            const endpoint = `${window.location.origin}/api/bpx`;
-            const scriptContent = `<script>
-(async function() {
-  try {
-    const endpoint = '${endpoint}';
-    const payload = { data: { u: window.location.href, r: document.referrer } };
-    await fetch(endpoint, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-      mode: 'cors'
-    });
-  } catch(e) { /* Analytics script failed silently */ }
-})();
-<\/script>`;
-            
-            fullTrackingScript = scriptContent;
-            trackingScriptBlock.textContent = scriptContent;
-        }
-
-        copyScriptButton.addEventListener('click', () => {
-            if (!fullTrackingScript) return;
-            navigator.clipboard.writeText(fullTrackingScript).then(() => {
-                copyScriptButton.textContent = 'Copied!';
-                setTimeout(() => { copyScriptButton.textContent = 'Copy Script'; }, 2000);
-            }).catch(err => {
-                console.error('Failed to copy script: ', err);
-                copyScriptButton.textContent = 'Error';
-            });
+        document.addEventListener('DOMContentLoaded', () => {
+            loadPageDetails();
+            generateTrackingScript();
         });
 
-        // --- DOMAIN MANAGEMENT ---
-        async function fetchTrackedDomains() {
+        async function loadPageDetails() {
             try {
-                const response = await fetch('/api/domains');
-                const { domains } = await response.json();
-                trackedDomainsList.innerHTML = '';
-                if (domains.length > 0) {
-                    domains.sort();
-                    domains.forEach(domain => {
-                        const li = document.createElement('li');
-                        li.innerHTML = `- <a href="details.html?domain=${domain}" target="_blank">${domain}</a>`;
-                        trackedDomainsList.appendChild(li);
+                loader.style.display = 'block';
+                contentDiv.style.display = 'none';
+                errorDiv.style.display = 'none';
+
+                const response = await fetch('/api/bpx');
+                if (!response.ok) throw new Error(`Server responded with ${response.status}`);
+                const data = await response.json();
+
+                pageViewsDiv.innerHTML = ''; // Clear previous data
+                for (const domain in data) {
+                    let tableHtml = `<h2>Domain: <a href="/details.html?domain=${domain}" target="_blank">${domain}</a></h2>`;
+                    tableHtml += `
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Path</th>
+                                    <th>Views</th>
+                                    <th>Uniques</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                    `;
+                    data[domain].forEach(page => {
+                        const path = new URL(page.url).pathname;
+                        tableHtml += `
+                            <tr>
+                                <td>${path}</td>
+                                <td>${page.views}</td>
+                                <td>${page.unique_views}</td>
+                            </tr>
+                        `;
                     });
-                } else {
-                    trackedDomainsList.innerHTML = '<li>No domains tracked.</li>';
+                    tableHtml += `</tbody></table>`;
+                    pageViewsDiv.innerHTML += tableHtml;
                 }
+                 contentDiv.style.display = 'block';
             } catch (error) {
-                console.error('Error fetching domains:', error);
-                trackedDomainsList.innerHTML = '<li>Error loading domains.</li>';
+                showError('Failed to load initial data: ' + error.message);
+            } finally {
+                loader.style.display = 'none';
             }
         }
 
-        addDomainForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const domain = domainInput.value.trim();
-            if (!domain) return;
-            formMessage.textContent = 'Adding...';
+        function generateTrackingScript() {
+            const endpoint = `${window.location.origin}/api/bpx`;
+            const scriptContent = `
+(async function() {
+    const endpoint = '${endpoint}';
+    const payload = {
+        data: {
+            u: window.location.href,
+            r: document.referrer
+        }
+    };
+    try {
+        await fetch(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+            mode: 'cors'
+        });
+    } catch (error) {
+        console.error('Analytics script error:', error);
+    }
+})();
+            `.trim();
+            document.getElementById('trackingScript').textContent = `<script>${scriptContent}<\/script>`;
+        }
+        
+        function copyScript() {
+            const scriptText = document.getElementById('trackingScript').textContent;
+            navigator.clipboard.writeText(scriptText).then(() => {
+                alert('Script copied to clipboard!');
+            }, (err) => {
+                alert('Failed to copy script.');
+            });
+        }
+        
+        async function addDomain() {
+            const domain = document.getElementById('domainInput').value.trim();
+            if (!domain) {
+                alert('Please enter a domain.');
+                return;
+            }
             try {
                 const response = await fetch('/api/domains', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ domain }),
+                    body: JSON.stringify({ domain })
                 });
+                const result = await response.json();
                 if (response.ok) {
-                    formMessage.textContent = `Success: Domain '${domain}' added.`;
-                    domainInput.value = '';
-                    await fetchTrackedDomains();
-                    await fetchDomainSummaries();
+                    alert(result.message);
+                    location.reload();
                 } else {
-                    const { message } = await response.json();
-                    throw new Error(message || 'Failed to add domain.');
+                    throw new Error(result.message || 'Failed to add domain');
                 }
             } catch (error) {
-                console.error('Error adding domain:', error);
-                formMessage.textContent = `Error: ${error.message}`;
-            }
-        });
-        
-        // --- DATA FETCHING & RENDERING ---
-        async function fetchDomainSummaries() {
-            try {
-                const response = await fetch('/api/bpx?view=domain_summary');
-                const data = await response.json();
-                const domains = Object.keys(data).sort();
-
-                if (domains.length === 0) {
-                    domainSummaryContent.innerHTML = '<p>No summary data available.</p>';
-                    return;
-                }
-
-                let tableHtml = `<table>
-                    <thead><tr><th>Domain</th><th>Today</th><th>This Week</th><th>This Month</th><th>This Year</th></tr></thead>
-                    <tbody>`;
-                
-                domains.forEach(domain => {
-                    const stats = data[domain];
-                    tableHtml += `<tr>
-                        <td><a href="details.html?domain=${domain}" target="_blank">${domain}</a></td>
-                        <td>${stats.daily.toLocaleString()}</td>
-                        <td>${stats.weekly.toLocaleString()}</td>
-                        <td>${stats.monthly.toLocaleString()}</td>
-                        <td>${stats.yearly.toLocaleString()}</td>
-                    </tr>`;
-                });
-
-                tableHtml += `</tbody></table>`;
-                domainSummaryContent.innerHTML = tableHtml;
-            } catch(error) {
-                console.error('Error fetching domain summaries:', error);
-                domainSummaryContent.innerHTML = '<p>Failed to load domain summaries.</p>';
+                showError('Error adding domain: ' + error.message);
             }
         }
 
-        async function fetchPageDetails() {
-            try {
-                const response = await fetch('/api/bpx');
-                const data = await response.json();
-                analyticsContainer.innerHTML = '';
-                const domains = Object.keys(data).sort();
-                if (domains.length === 0) {
-                    analyticsContainer.innerHTML = '<p>No page data received yet.</p>';
-                    return;
-                }
-                
-                for (const domain of domains) {
-                    const pages = data[domain].sort((a, b) => b.views - a.views);
-                    const domainDetails = document.createElement('details');
-                    domainDetails.open = true;
-                    
-                    let pagesHtml = pages.map(page => {
-                        const path = new URL(page.url).pathname;
-                        return `<tr>
-                            <td title="${page.url}">${path}</td>
-                            <td>${(page.unique_views || 0).toLocaleString()}</td>
-                            <td>${page.views.toLocaleString()}</td>
-                        </tr>`;
-                    }).join('');
-                    
-                    domainDetails.innerHTML = `<summary><h3><a href="details.html?domain=${domain}" target="_blank">${domain}</a></h3></summary>
-                        <table>
-                            <thead><tr><th>Path</th><th>Uniques</th><th>Views</th></tr></thead>
-                            <tbody>${pagesHtml}</tbody>
-                        </table>`;
-                    analyticsContainer.appendChild(domainDetails);
-                }
-            } catch (error) {
-                console.error('Error fetching page details:', error);
-                analyticsContainer.innerHTML = '<p>Failed to load page details.</p>';
-            }
+        function showError(message) {
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+            loader.style.display = 'none';
         }
-
-        // --- Initial Load ---
-        document.addEventListener('DOMContentLoaded', () => {
-            generateTrackingScript();
-            fetchTrackedDomains();
-            fetchDomainSummaries();
-            fetchPageDetails();
-        });
     </script>
 </body>
 </html>
