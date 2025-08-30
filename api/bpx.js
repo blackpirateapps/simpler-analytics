@@ -141,31 +141,37 @@ async function getDomainDetails(domain) {
     }), { status: 200, headers: corsHeaders });
 }
 
+// --- *** FIXED FUNCTION *** ---
 async function getDomainSummaries() {
-    const queries = {
-        daily:   `SELECT domain, SUM(is_unique) as count FROM analytics_timeseries WHERE DATE(timestamp) = DATE('now') GROUP BY domain`,
-        weekly:  `SELECT domain, SUM(is_unique) as count FROM analytics_timeseries WHERE DATE(timestamp) >= DATE('now', '-7 days') GROUP BY domain`,
-        monthly: `SELECT domain, SUM(is_unique) as count FROM analytics_timeseries WHERE STRFTIME('%Y-%m', timestamp) = STRFTIME('%Y-%m', 'now') GROUP BY domain`,
-        yearly:  `SELECT domain, SUM(is_unique) as count FROM analytics_timeseries WHERE STRFTIME('%Y', timestamp) = STRFTIME('%Y', 'now') GROUP BY domain`,
-    };
+    // This single query is much more efficient than the previous four.
+    const query = `
+        SELECT
+            domain,
+            SUM(CASE WHEN DATE(timestamp) = DATE('now') THEN is_unique ELSE 0 END) as daily,
+            SUM(CASE WHEN DATE(timestamp) >= DATE('now', '-7 days') THEN is_unique ELSE 0 END) as weekly,
+            SUM(CASE WHEN STRFTIME('%Y-%m', timestamp) = STRFTIME('%Y-%m', 'now') THEN is_unique ELSE 0 END) as monthly,
+            SUM(CASE WHEN STRFTIME('%Y', timestamp) = STRFTIME('%Y', 'now') THEN is_unique ELSE 0 END) as yearly
+        FROM analytics_timeseries
+        WHERE is_unique = 1
+        GROUP BY domain;
+    `;
 
-    const [daily, weekly, monthly, yearly] = await Promise.all(Object.values(queries).map(sql => db.execute(sql)));
-    
+    const { rows } = await db.execute(query);
+
+    // Format the result into the nested object the frontend expects.
     const summary = {};
-    const processResults = (rows, period) => {
-        rows.forEach(row => {
-            if (!summary[row.domain]) summary[row.domain] = { daily: 0, weekly: 0, monthly: 0, yearly: 0 };
-            summary[row.domain][period] = row.count || 0;
-        });
-    };
-
-    processResults(daily.rows, 'daily');
-    processResults(weekly.rows, 'weekly');
-    processResults(monthly.rows, 'monthly');
-    processResults(yearly.rows, 'yearly');
-
+    for (const row of rows) {
+        summary[row.domain] = {
+            daily: row.daily || 0,
+            weekly: row.weekly || 0,
+            monthly: row.monthly || 0,
+            yearly: row.yearly || 0,
+        };
+    }
+    
     return new Response(JSON.stringify(summary), { status: 200, headers: corsHeaders });
 }
+
 
 async function getDefaultPageList() {
     const { rows } = await db.execute(`
