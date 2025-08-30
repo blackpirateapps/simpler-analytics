@@ -69,30 +69,43 @@
 
             try {
                 const response = await fetch(`/api/bpx?view=domain_details&domain=${domain}`);
+                if (!response.ok) {
+                    throw new Error(`Server responded with status ${response.status}`);
+                }
                 const data = await response.json();
 
                 const formatData = (items, key1, key2) => {
                     if (!items || items.length === 0) return 'No data available.';
-                    // Find the longest key to align the output
-                    const maxLength = Math.max(...items.map(item => String(item[key1]).length));
-                    return items.map(item => `${String(item[key1]).padEnd(maxLength, ' ')} : ${item[key2]}`).join('\n');
+                    // Find the longest key to align the output, handling null/undefined values
+                    const maxLength = Math.max(...items.map(item => String(item[key1] || 'N/A').length));
+                    // Format each line, handling null/undefined values
+                    return items.map(item => {
+                        const value1 = String(item[key1] || 'N/A').padEnd(maxLength, ' ');
+                        const value2 = item[key2];
+                        return `${value1} : ${value2}`;
+                    }).join('\n');
                 };
                 
                 document.getElementById('referrers-data').textContent = formatData(data.referrers, 'referrer', 'count');
                 document.getElementById('browsers-data').textContent = formatData(data.browsers, 'browser', 'count');
                 document.getElementById('devices-data').textContent = formatData(data.devices, 'device_type', 'count');
                 
-                // Special formatting for IPs
+                // Special formatting for IPs, handling null/undefined values
                 const ipsText = data.ips && data.ips.length > 0
-                    ? data.ips.map(ip => `${ip.ip_address.padEnd(20, ' ')} : ${ip.views} views (last visit: ${new Date(ip.last_visit).toLocaleString()})`).join('\n')
+                    ? data.ips.map(ip => {
+                        const ipAddress = (ip.ip_address || 'N/A').padEnd(20, ' ');
+                        const lastVisit = ip.last_visit ? new Date(ip.last_visit).toLocaleString() : 'N/A';
+                        return `${ipAddress} : ${ip.views} views (last visit: ${lastVisit})`;
+                    }).join('\n')
                     : 'No data available.';
                 document.getElementById('ips-data').textContent = ipsText;
 
             } catch (error) {
                 console.error("Failed to load domain details:", error);
-                document.getElementById('details-content').innerHTML = '<p style="color: #f85149;">Error fetching data. Please check the console.</p>';
+                document.getElementById('details-content').innerHTML = `<p style="color: #f85149;">Failed to load domain details: ${error.message}</p>`;
             }
         });
     </script>
 </body>
 </html>
+
