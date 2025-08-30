@@ -45,7 +45,6 @@ module.exports = async (req) => {
 
             if (domainAllowedResult.rows.length === 0) {
                 console.warn(`POST /api/bpx: Aborting. Domain '${domain}' is not in the allowed list.`);
-                // Return 200 OK so client-side doesn't show an error for non-tracked domains
                 return new Response(JSON.stringify({ message: "Domain not tracked." }), { status: 200, headers: corsHeaders });
             }
             console.log(`POST /api/bpx: Domain '${domain}' is allowed. Proceeding.`);
@@ -55,7 +54,6 @@ module.exports = async (req) => {
             const userAgent = req.headers['user-agent'] || 'unknown';
             const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
             
-            // Make hash specific to the visitor AND the page
             const visitorFingerprint = `${ip}-${userAgent}-${today}-${url}`;
             const visitorHash = crypto.createHash('sha256').update(visitorFingerprint).digest('hex');
 
@@ -127,11 +125,12 @@ module.exports = async (req) => {
             
             // --- Domain Summary View ---
             if (view === 'domain_summary') {
+                // *** FIX: Rewritten queries to be simpler and correct ***
                 const queries = {
-                    daily: `SELECT domain, COUNT(DISTINCT visitor_hash) as count FROM analytics_timeseries JOIN daily_visitor_hashes ON DATE(analytics_timeseries.timestamp) = daily_visitor_hashes.day WHERE DATE(analytics_timeseries.timestamp) = DATE('now') GROUP BY domain`,
-                    weekly: `SELECT domain, COUNT(DISTINCT visitor_hash) as count FROM analytics_timeseries JOIN daily_visitor_hashes ON DATE(analytics_timeseries.timestamp) = daily_visitor_hashes.day WHERE DATE(analytics_timeseries.timestamp) >= DATE('now', '-7 days') GROUP BY domain`,
-                    monthly: `SELECT domain, COUNT(DISTINCT visitor_hash) as count FROM analytics_timeseries JOIN daily_visitor_hashes ON DATE(analytics_timeseries.timestamp) = daily_visitor_hashes.day WHERE STRFTIME('%Y-%m', analytics_timeseries.timestamp) = STRFTIME('%Y-%m', 'now') GROUP BY domain`,
-                    yearly: `SELECT domain, COUNT(DISTINCT visitor_hash) as count FROM analytics_timeseries JOIN daily_visitor_hashes ON DATE(analytics_timeseries.timestamp) = daily_visitor_hashes.day WHERE STRFTIME('%Y', analytics_timeseries.timestamp) = STRFTIME('%Y', 'now') GROUP BY domain`,
+                    daily:   `SELECT domain, SUM(is_unique) as count FROM analytics_timeseries WHERE DATE(timestamp) = DATE('now') GROUP BY domain`,
+                    weekly:  `SELECT domain, SUM(is_unique) as count FROM analytics_timeseries WHERE DATE(timestamp) >= DATE('now', '-7 days') GROUP BY domain`,
+                    monthly: `SELECT domain, SUM(is_unique) as count FROM analytics_timeseries WHERE STRFTIME('%Y-%m', timestamp) = STRFTIME('%Y-%m', 'now') GROUP BY domain`,
+                    yearly:  `SELECT domain, SUM(is_unique) as count FROM analytics_timeseries WHERE STRFTIME('%Y', timestamp) = STRFTIME('%Y', 'now') GROUP BY domain`,
                 };
 
                 const [daily, weekly, monthly, yearly] = await Promise.all([
@@ -143,7 +142,7 @@ module.exports = async (req) => {
                 const processResults = (rows, period) => {
                     rows.forEach(row => {
                         if (!summary[row.domain]) summary[row.domain] = { daily: 0, weekly: 0, monthly: 0, yearly: 0 };
-                        summary[row.domain][period] = row.count;
+                        summary[row.domain][period] = row.count || 0;
                     });
                 };
 
@@ -153,55 +152,6 @@ module.exports = async (req) => {
                 processResults(yearly.rows, 'yearly');
 
                 return new Response(JSON.stringify(summary), { status: 200, headers: corsHeaders });
-            }
-
-
-            // --- Graph View ---
-            if (view === 'graph') {
-                const period = searchParams.get('period') || 'daily';
-                let dateFormat, dateModifier, groupBy;
-
-                switch (period) {
-                    case 'weekly':
-                        dateFormat = '%Y-%m-%d';
-                        dateModifier = "'-7 days'";
-                        groupBy = "DATE(timestamp)";
-                        break;
-                    case 'monthly':
-                        dateFormat = '%Y-%m-%d';
-                        dateModifier = "'-30 days'";
-                        groupBy = "DATE(timestamp)";
-                        break;
-                    case 'yearly':
-                        dateFormat = '%Y-%m';
-                        dateModifier = "'-12 months'";
-                        groupBy = "STRFTIME('%Y-%m', timestamp)";
-                        break;
-                    case 'daily':
-                    default:
-                        dateFormat = '%H:00';
-                        dateModifier = "'-24 hours'";
-                        groupBy = "STRFTIME('%Y-%m-%d %H:00', timestamp)";
-                        break;
-                }
-                
-                const domainClause = domainFilter === 'all' ? '' : 'WHERE domain = ?';
-                const args = domainFilter === 'all' ? [] : [domainFilter];
-
-                const query = `
-                    SELECT
-                        STRFTIME('${dateFormat}', timestamp) as date,
-                        COUNT(*) as total_views,
-                        SUM(CASE WHEN is_unique = 1 THEN 1 ELSE 0 END) as unique_views
-                    FROM analytics_timeseries
-                    ${domainClause}
-                    ${domainFilter === 'all' ? 'WHERE' : 'AND'} timestamp >= DATETIME('now', ${dateModifier})
-                    GROUP BY ${groupBy}
-                    ORDER BY ${groupBy} ASC
-                `;
-
-                const { rows } = await db.execute({ sql: query, args });
-                return new Response(JSON.stringify(rows), { status: 200, headers: corsHeaders });
             }
 
             // --- Default View (Page Details Table) ---
