@@ -67,12 +67,9 @@
             <p class="text-gray-500 mt-2">// Page view statistics for all tracked sites</p>
         </header>
 
-        <!-- Main Grid -->
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
             
-            <!-- Left Column: Controls -->
             <div class="lg:col-span-1 space-y-8">
-                <!-- Domain Management -->
                 <section class="terminal-card rounded-lg shadow-lg">
                     <div class="terminal-header px-4 py-2 rounded-t-lg font-semibold">[ manage_tracked_domains ]</div>
                     <div class="p-4">
@@ -87,7 +84,6 @@
                     </div>
                 </section>
 
-                <!-- Tracking Snippet -->
                 <section class="terminal-card rounded-lg shadow-lg">
                     <div class="terminal-header px-4 py-2 rounded-t-lg font-semibold">[ get_tracking_script ]</div>
                     <div class="p-4">
@@ -100,9 +96,7 @@
                 </section>
             </div>
 
-            <!-- Right Column: Analytics -->
             <div class="lg:col-span-2 space-y-8">
-                <!-- Graph Section -->
                 <section class="terminal-card rounded-lg shadow-lg">
                     <div class="terminal-header px-4 py-3 rounded-t-lg font-semibold flex flex-wrap justify-between items-center gap-4">
                         <span>[ traffic_overview ]</span>
@@ -110,7 +104,7 @@
                             <select id="domain-filter" class="terminal-select text-xs bg-gray-800 border border-gray-600 rounded px-2 py-1">
                                 <option value="all">All Domains</option>
                             </select>
-                            <div class="btn-group text-xs border border-gray-600 rounded inline-flex">
+                            <div id="graph-period-filter" class="btn-group text-xs border border-gray-600 rounded inline-flex">
                                 <button data-period="daily" class="px-2 py-1 active">Daily</button>
                                 <button data-period="weekly" class="px-2 py-1 border-l border-gray-600">Weekly</button>
                                 <button data-period="monthly" class="px-2 py-1 border-l border-gray-600">Monthly</button>
@@ -122,8 +116,17 @@
                         <canvas id="analyticsChart"></canvas>
                     </div>
                 </section>
-
-                <!-- Summary Table Section -->
+                
+                <section class="terminal-card rounded-lg shadow-lg -mb-2">
+                    <div class="terminal-header px-4 py-3 rounded-t-lg font-semibold flex flex-wrap justify-between items-center gap-4">
+                        <span>[ page_analytics_summary ]</span>
+                         <div id="summary-period-filter" class="btn-group text-xs border border-gray-600 rounded inline-flex">
+                            <button data-period="daily" class="px-2 py-1 active">Daily</button>
+                            <button data-period="weekly" class="px-2 py-1 border-l border-gray-600">Weekly</button>
+                            <button data-period="monthly" class="px-2 py-1 border-l border-gray-600">Monthly</button>
+                        </div>
+                    </div>
+                </section>
                 <main id="analytics-container" class="space-y-6">
                     <div id="loading-state" class="text-center text-gray-500"><p>Fetching analytics data...</p></div>
                 </main>
@@ -146,11 +149,12 @@
         const trackingScriptBlock = document.getElementById('tracking-script-block');
         const copyScriptButton = document.getElementById('copy-script-button');
         const chartCanvas = document.getElementById('analyticsChart').getContext('2d');
-        const btnGroup = document.querySelector('.btn-group');
+        const graphPeriodFilter = document.getElementById('graph-period-filter');
+        const summaryPeriodFilter = document.getElementById('summary-period-filter'); // New ref
         const domainFilter = document.getElementById('domain-filter');
 
         let analyticsChart;
-        let fullTrackingScript = ''; // To hold the complete script for the copy function
+        let fullTrackingScript = '';
 
         // --- Charting Logic ---
         function initializeChart() {
@@ -172,7 +176,7 @@
         }
 
         async function fetchGraphData() {
-            const period = btnGroup.querySelector('.active').dataset.period;
+            const period = graphPeriodFilter.querySelector('.active').dataset.period;
             const domain = domainFilter.value;
             try {
                 const response = await fetch(`/api/bpx?view=graph&period=${period}&domain=${domain}`);
@@ -187,14 +191,23 @@
             }
         }
 
-        btnGroup.addEventListener('click', (e) => {
+        graphPeriodFilter.addEventListener('click', (e) => {
             if (e.target.tagName === 'BUTTON') {
-                btnGroup.querySelector('.active').classList.remove('active');
+                graphPeriodFilter.querySelector('.active').classList.remove('active');
                 e.target.classList.add('active');
                 fetchGraphData();
             }
         });
         domainFilter.addEventListener('change', fetchGraphData);
+
+        // --- NEW: Event listener for summary period ---
+        summaryPeriodFilter.addEventListener('click', (e) => {
+            if (e.target.tagName === 'BUTTON') {
+                summaryPeriodFilter.querySelector('.active').classList.remove('active');
+                e.target.classList.add('active');
+                fetchAnalyticsSummary();
+            }
+        });
 
         // --- SCRIPT SNIPPET & COPY ---
         function generateTrackingScript() {
@@ -215,39 +228,17 @@
 <\/script>`;
             
             fullTrackingScript = scriptContent;
-            trackingScriptBlock.innerHTML = ''; // Clear previous content
-
-            const lines = scriptContent.split('\n');
-            lines.forEach((line, index) => {
-                const span = document.createElement('span');
-                span.textContent = line + '\n';
-                span.style.opacity = '0';
-                span.style.display = 'block';
-                span.style.transition = 'opacity 0.3s ease-in-out';
-                trackingScriptBlock.appendChild(span);
-
-                setTimeout(() => {
-                    span.style.opacity = '1';
-                }, index * 100); // Stagger the animation
-            });
+            trackingScriptBlock.textContent = scriptContent.replace(/<\/script>/g, '<\\/script>');
         }
 
         copyScriptButton.addEventListener('click', () => {
-            if (!fullTrackingScript) return;
-            const scriptText = fullTrackingScript;
-            const textArea = document.createElement('textarea');
-            textArea.value = scriptText;
-            document.body.appendChild(textArea);
-            textArea.select();
-            try {
-                document.execCommand('copy');
+            navigator.clipboard.writeText(fullTrackingScript).then(() => {
                 copyScriptButton.textContent = 'COPIED!';
                 setTimeout(() => { copyScriptButton.textContent = 'COPY'; }, 2000);
-            } catch (err) {
+            }, (err) => {
                 console.error('Failed to copy script: ', err);
                 copyScriptButton.textContent = 'ERROR';
-            }
-            document.body.removeChild(textArea);
+            });
         });
 
         // --- DOMAIN MANAGEMENT ---
@@ -299,7 +290,7 @@
                     formMessage.textContent = `SUCCESS: Domain '${domain}' added.`;
                     formMessage.className = 'text-sm text-emerald-400';
                     domainInput.value = '';
-                    await fetchTrackedDomains(); // Refresh domain list and filter
+                    await fetchTrackedDomains();
                 } else {
                     const { message } = await response.json();
                     throw new Error(message || 'Failed to add domain.');
@@ -311,16 +302,18 @@
             }
         });
 
-        // --- ANALYTICS SUMMARY TABLE DISPLAY ---
+        // --- MODIFIED: ANALYTICS SUMMARY TABLE DISPLAY ---
         async function fetchAnalyticsSummary() {
+            const period = summaryPeriodFilter.querySelector('.active').dataset.period;
+            analyticsContainer.innerHTML = '<div id="loading-state" class="text-center text-gray-500"><p>Fetching analytics data...</p></div>';
+
             try {
-                const response = await fetch('/api/bpx');
+                const response = await fetch(`/api/bpx?period=${period}`);
                 const data = await response.json();
-                if (loadingState) loadingState.remove();
                 analyticsContainer.innerHTML = '';
                 const domains = Object.keys(data);
                 if (domains.length === 0) {
-                    analyticsContainer.innerHTML = '<div class="terminal-card rounded-lg p-4 text-center text-gray-500">No summary data received yet.</div>';
+                    analyticsContainer.innerHTML = '<div class="terminal-card rounded-lg p-4 text-center text-gray-500">No summary data for this period.</div>';
                     return;
                 }
                 domains.sort();
@@ -355,7 +348,6 @@
                 }
             } catch (error) {
                 console.error('Error fetching analytics summary:', error);
-                if (loadingState) loadingState.remove();
                 analyticsContainer.innerHTML = '<div class="terminal-card rounded-lg p-4 text-center text-red-500">Failed to load analytics summary.</div>';
             }
         }

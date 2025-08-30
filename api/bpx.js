@@ -42,43 +42,37 @@ module.exports = async function handler(req, res) {
                 return res.status(403).json({ message: `Domain '${domain}' is not tracked.` });
             }
 
-            // --- Privacy-Preserving Unique Visitor Logic ---
-            let isUnique = false;
+            // --- MODIFIED: Unique Visitor Logic ---
             const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
             const userAgent = req.headers['user-agent'];
             const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
 
-            if (ip && userAgent) {
-                // The hash now includes the URL, making it unique per page, per day.
-                const hashInput = `${ip}-${userAgent}-${today}-${url}`;
-                const visitorHash = crypto.createHash('sha256').update(hashInput).digest('hex');
-                console.log(`[Analytics Debug] Generated visitor hash for URL: ${visitorHash}`);
+            // Generate a persistent visitor ID for accurate unique tracking
+            const visitor_id = ip && userAgent ? crypto.createHash('sha256').update(`${ip}-${userAgent}`).digest('hex') : null;
 
+            let isUniqueToday = false;
+            // This part is for the daily unique check, which you might still want for some summaries
+            if (ip && userAgent) {
+                const dailyHashInput = `${ip}-${userAgent}-${today}-${url}`;
+                const dailyVisitorHash = crypto.createHash('sha256').update(dailyHashInput).digest('hex');
                 try {
-                    console.log("[Analytics Debug] Attempting to insert new visitor hash...");
                     await client.execute({
                         sql: "INSERT INTO daily_visitor_hashes (visitor_hash, day) VALUES (?, ?)",
-                        args: [visitorHash, today],
+                        args: [dailyVisitorHash, today],
                     });
-                    isUnique = true;
-                    console.log("[Analytics Debug] SUCCESS: Visitor is unique for this page today.");
+                    isUniqueToday = true;
                 } catch (error) {
-                    if (error.message.includes('UNIQUE constraint failed')) {
-                        console.log("[Analytics Debug] INFO: Visitor already recorded for this page today.");
-                    } else {
-                        // Re-throw other unexpected errors
+                    if (!error.message.includes('UNIQUE constraint failed')) {
                         console.error("[Analytics Debug] ERROR: An unexpected database error occurred while checking uniqueness.", error);
                         throw error;
                     }
                 }
-            } else {
-                console.log("[Analytics Debug] WARN: Could not determine IP or User-Agent. Cannot track uniqueness.");
             }
-
-            // --- Update Database ---
+            
+            // --- MODIFIED: Update Database with visitor_id ---
             await client.execute({
-                sql: "INSERT INTO analytics_timeseries (url, domain, is_unique) VALUES (?, ?, ?)",
-                args: [url, new URL(url).hostname, isUnique],
+                sql: "INSERT INTO analytics_timeseries (url, domain, is_unique, visitor_id) VALUES (?, ?, ?, ?)",
+                args: [url, new URL(url).hostname, isUniqueToday, visitor_id],
             });
 
             await client.execute({
@@ -88,7 +82,7 @@ module.exports = async function handler(req, res) {
                         views = views + 1,
                         unique_views = unique_views + ?;
                 `,
-                args: [url, new URL(url).hostname, isUnique ? 1 : 0, isUnique ? 1 : 0],
+                args: [url, new URL(url).hostname, isUniqueToday ? 1 : 0, isUniqueToday ? 1 : 0],
             });
 
             return res.status(200).json({ message: 'View tracked.' });
@@ -100,29 +94,18 @@ module.exports = async function handler(req, res) {
             if (view === 'graph') {
                 let format, interval;
                 switch (period) {
-                    case 'weekly':
-                        format = '%Y-%m-%d'; // Group by day
-                        interval = '-7 days';
-                        break;
-                    case 'monthly':
-                        format = '%Y-%m-%d'; // Group by day
-                        interval = '-30 days';
-                        break;
-                    case 'yearly':
-                        format = '%Y-%m'; // Group by month
-                        interval = '-1 year';
-                        break;
-                    default: // daily
-                        format = '%Y-%m-%d %H:00'; // Group by hour
-                        interval = '-24 hours';
-                        break;
+                    case 'weekly': format = '%Y-%m-%d'; interval = '-7 days'; break;
+                    case 'monthly': format = '%Y-%m-%d'; interval = '-30 days'; break;
+                    case 'yearly': format = '%Y-%m'; interval = '-1 year'; break;
+                    default: format = '%Y-%m-%d %H:00'; interval = '-24 hours'; break;
                 }
 
+                // --- MODIFIED: Graph query now uses visitor_id for true unique counts ---
                 let sql = `
                     SELECT
                         strftime(?, timestamp) as date,
                         COUNT(*) as total_views,
-                        SUM(CASE WHEN is_unique = 1 THEN 1 ELSE 0 END) as unique_views
+                        COUNT(DISTINCT visitor_id) as unique_views
                     FROM analytics_timeseries
                     WHERE timestamp >= datetime('now', ?)
                 `;
@@ -139,8 +122,29 @@ module.exports = async function handler(req, res) {
                 return res.status(200).json(graphData.rows);
             }
 
-            // Default: Handle request for summary table data
-            const result = await client.execute("SELECT url, domain, views, unique_views FROM page_views");
+            // --- MODIFIED: Handle request for summary table data with time periods ---
+            let summaryInterval;
+            switch (req.query.period) {
+                case 'weekly': summaryInterval = '-7 days'; break;
+                case 'monthly': summaryInterval = '-30 days'; break;
+                default: summaryInterval = '-24 hours'; break; // Default to daily
+            }
+
+            // Query the main timeseries table for accurate, period-based data
+            const result = await client.execute({
+                sql: `
+                    SELECT
+                        url,
+                        domain,
+                        COUNT(*) as views,
+                        COUNT(DISTINCT visitor_id) as unique_views
+                    FROM analytics_timeseries
+                    WHERE timestamp >= datetime('now', ?)
+                    GROUP BY url, domain
+                `,
+                args: [summaryInterval],
+            });
+
             const analyticsByDomain = result.rows.reduce((acc, row) => {
                 const { domain, url, views, unique_views } = row;
                 if (!acc[domain]) acc[domain] = [];
@@ -148,6 +152,8 @@ module.exports = async function handler(req, res) {
                 return acc;
             }, {});
             return res.status(200).json(analyticsByDomain);
+            // --- END OF MODIFICATION ---
+
         } else {
             res.setHeader('Allow', ['GET', 'POST', 'OPTIONS']);
             return res.status(405).end(`Method ${req.method} Not Allowed`);
