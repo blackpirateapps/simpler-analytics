@@ -4,206 +4,98 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Analytics Dashboard</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&display=swap" rel="stylesheet">
     <style>
-        body {
-            font-family: 'Fira Code', monospace;
+        body { 
+            font-family: monospace; 
+            background-color: #0d1117; 
+            color: #c9d1d9; 
+            padding: 2rem;
+            max-width: 1200px;
+            margin: auto;
         }
-        .cursor::after {
-            content: '_';
-            animation: blink 1s step-end infinite;
+        h1, h2, h3 { 
+            color: #58a6ff; 
+            border-bottom: 1px solid #30363d;
+            padding-bottom: 0.5rem;
+            margin-top: 2rem;
         }
-        @keyframes blink {
-            50% {
-                opacity: 0;
-            }
-        }
-        .terminal-card {
-            background-color: rgba(17, 24, 39, 0.8);
-            border: 1px solid #374151;
-            backdrop-filter: blur(10px);
-        }
-        .terminal-header {
-            background-color: #374151;
-            color: #d1d5db;
-        }
-        .terminal-input, .terminal-select {
-            background-color: transparent;
-            border: none;
-            outline: none;
-            color: #6ee7b7;
-        }
-        .terminal-input::placeholder {
-            color: #4b5563;
-        }
-        .code-block {
-            background-color: #111827;
-            color: #d1d5db;
-            border: 1px solid #374151;
-            padding: 1rem;
-            border-radius: 0.5rem;
-            font-family: 'Fira Code', monospace;
+        pre, code { 
+            background-color: #161b22; 
+            padding: 1rem; 
+            border: 1px solid #30363d;
+            border-radius: 6px; 
             white-space: pre-wrap;
-            word-wrap: break-word;
+            word-break: break-all;
+            display: block;
         }
-        .domain-item:hover .url-path {
-            color: #6ee7b7;
+        a { color: #58a6ff; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+        th, td { padding: 0.5rem; text-align: left; border-bottom: 1px solid #30363d; }
+        th { color: #8b949e; }
+        input[type="text"] {
+            background-color: #161b22;
+            color: #c9d1d9;
+            border: 1px solid #30363d;
+            padding: 0.5rem;
+            border-radius: 6px;
         }
-        .btn-group button.active {
-            background-color: #6ee7b7;
-            color: #111827;
+        button {
+            background-color: #21262d;
+            color: #c9d1d9;
+            border: 1px solid #30363d;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            cursor: pointer;
         }
+        button:hover { background-color: #30363d; }
+        details > summary { cursor: pointer; padding: 0.5rem 0; }
     </style>
 </head>
-<body class="bg-gray-900 text-gray-300 antialiased">
+<body>
 
-    <div class="container mx-auto p-4 md:p-8">
-        <header class="text-center mb-12">
-            <h1 class="text-3xl md:text-4xl font-semibold text-emerald-400 cursor">bp/analytics_dashboard</h1>
-            <p class="text-gray-500 mt-2">// Page view statistics for all tracked sites</p>
-        </header>
+    <h1>Analytics Dashboard</h1>
 
-        <!-- Main Grid -->
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            
-            <!-- Left Column: Controls -->
-            <div class="lg:col-span-1 space-y-8">
-                <!-- Domain Management -->
-                <section class="terminal-card rounded-lg shadow-lg">
-                    <div class="terminal-header px-4 py-2 rounded-t-lg font-semibold">[ manage_tracked_domains ]</div>
-                    <div class="p-4">
-                        <form id="add-domain-form" class="flex items-center space-x-2 mb-4">
-                            <span class="text-emerald-400 font-bold">&gt;</span>
-                            <input type="text" id="domain-input" placeholder="add domain..." class="terminal-input flex-grow p-1" required>
-                            <button type="submit" class="text-gray-400 hover:text-emerald-400 transition-colors">ADD</button>
-                        </form>
-                        <div id="form-message" class="text-sm min-h-[1.25rem] font-mono"></div>
-                        <h3 class="text-gray-400 mt-4 mb-2">// tracked_domains.list</h3>
-                        <ul id="tracked-domains-list" class="text-cyan-400 space-y-1 text-sm"><li>Initializing...</li></ul>
-                    </div>
-                </section>
+    <section>
+        <h2>Manage Domains</h2>
+        <form id="add-domain-form">
+            <input type="text" id="domain-input" placeholder="example.com" required>
+            <button type="submit">Add Domain</button>
+        </form>
+        <div id="form-message" style="min-height: 1.25rem; margin-top: 0.5rem;"></div>
+        <h3>Tracked Domains</h3>
+        <ul id="tracked-domains-list" style="list-style: none; padding-left: 0;"><li>Loading...</li></ul>
+    </section>
+    
+    <section>
+        <h2>Tracking Script</h2>
+        <p>// Add this to the &lt;body&gt; of sites you want to track.</p>
+        <pre><code id="tracking-script-block">Generating script...</code></pre>
+        <button id="copy-script-button" style="margin-top: 1rem;">Copy Script</button>
+    </section>
 
-                <!-- Tracking Snippet -->
-                <section class="terminal-card rounded-lg shadow-lg">
-                    <div class="terminal-header px-4 py-2 rounded-t-lg font-semibold">[ get_tracking_script ]</div>
-                    <div class="p-4">
-                        <p class="text-gray-500 text-sm mb-4">// Add to &lt;body&gt; on sites to track.</p>
-                        <div class="relative">
-                            <pre><code id="tracking-script-block" class="code-block text-xs"></code></pre>
-                            <button id="copy-script-button" class="absolute top-2 right-2 bg-gray-700 text-gray-300 text-xs font-semibold px-2 py-1 rounded hover:bg-gray-600 transition">COPY</button>
-                        </div>
-                    </div>
-                </section>
-            </div>
+    <section>
+        <h2>Domain Summaries (Unique Visitors)</h2>
+        <div id="domain-summary-content"><p>Loading summaries...</p></div>
+    </section>
 
-            <!-- Right Column: Analytics -->
-            <div class="lg:col-span-2 space-y-8">
-                <!-- Graph Section -->
-                <section class="terminal-card rounded-lg shadow-lg">
-                    <div class="terminal-header px-4 py-3 rounded-t-lg font-semibold flex flex-wrap justify-between items-center gap-4">
-                        <span>[ traffic_overview ]</span>
-                        <div class="flex items-center gap-4">
-                            <select id="domain-filter" class="terminal-select text-xs bg-gray-800 border border-gray-600 rounded px-2 py-1">
-                                <option value="all">All Domains</option>
-                            </select>
-                            <div class="btn-group text-xs border border-gray-600 rounded inline-flex">
-                                <button data-period="daily" class="px-2 py-1 active">Daily</button>
-                                <button data-period="weekly" class="px-2 py-1 border-l border-gray-600">Weekly</button>
-                                <button data-period="monthly" class="px-2 py-1 border-l border-gray-600">Monthly</button>
-                                <button data-period="yearly" class="px-2 py-1 border-l border-gray-600">Yearly</button>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="p-4">
-                        <canvas id="analyticsChart"></canvas>
-                    </div>
-                </section>
-
-                <!-- NEW: Domain Summaries Section -->
-                <section id="domain-summary-container" class="terminal-card rounded-lg shadow-lg">
-                    <div class="terminal-header px-4 py-3 rounded-t-lg font-semibold">[ domain_summaries: unique_visitors ]</div>
-                    <div id="domain-summary-content" class="p-2">
-                        <p class="text-center text-gray-500 p-4">Loading summaries...</p>
-                    </div>
-                </section>
-
-                <!-- Page Details Section -->
-                <main id="analytics-container" class="space-y-6">
-                    <div id="loading-state" class="text-center text-gray-500"><p>Fetching page details...</p></div>
-                </main>
-            </div>
-        </div>
-
-        <footer class="text-center mt-12 text-gray-600 text-sm">
-            <p>STATUS: <span class="text-emerald-400">LIVE</span> | Data updated in real-time.</p>
-        </footer>
-    </div>
+    <section>
+        <h2>Page Details</h2>
+        <div id="analytics-container"><p>Loading page details...</p></div>
+    </section>
 
     <script>
-        // --- DOM Element Refs ---
+        // --- DOM Refs ---
         const analyticsContainer = document.getElementById('analytics-container');
-        const loadingState = document.getElementById('loading-state');
         const addDomainForm = document.getElementById('add-domain-form');
         const domainInput = document.getElementById('domain-input');
         const formMessage = document.getElementById('form-message');
         const trackedDomainsList = document.getElementById('tracked-domains-list');
         const trackingScriptBlock = document.getElementById('tracking-script-block');
         const copyScriptButton = document.getElementById('copy-script-button');
-        const chartCanvas = document.getElementById('analyticsChart').getContext('2d');
-        const btnGroup = document.querySelector('.btn-group');
-        const domainFilter = document.getElementById('domain-filter');
         const domainSummaryContent = document.getElementById('domain-summary-content');
 
-        let analyticsChart;
         let fullTrackingScript = '';
-
-        // --- Charting Logic ---
-        function initializeChart() {
-            analyticsChart = new Chart(chartCanvas, {
-                type: 'bar',
-                data: { labels: [], datasets: [
-                    { label: 'Total Views', data: [], backgroundColor: 'rgba(99, 102, 241, 0.6)', borderColor: 'rgba(99, 102, 241, 1)', yAxisID: 'y' },
-                    { label: 'Unique Visitors', data: [], backgroundColor: 'rgba(34, 197, 94, 0.6)', borderColor: 'rgba(34, 197, 94, 1)', type: 'line', yAxisID: 'y', tension: 0.2 }
-                ]},
-                options: {
-                    responsive: true,
-                    scales: {
-                        x: { ticks: { color: '#9ca3af' }, grid: { color: '#374151' } },
-                        y: { beginAtZero: true, ticks: { color: '#9ca3af', stepSize: 1 }, grid: { color: '#374151' } }
-                    },
-                    plugins: { legend: { labels: { color: '#d1d5db' } } }
-                }
-            });
-        }
-
-        async function fetchGraphData() {
-            const period = btnGroup.querySelector('.active').dataset.period;
-            const domain = domainFilter.value;
-            try {
-                const response = await fetch(`/api/bpx?view=graph&period=${period}&domain=${domain}`);
-                const data = await response.json();
-                
-                analyticsChart.data.labels = data.map(d => d.date);
-                analyticsChart.data.datasets[0].data = data.map(d => d.total_views);
-                analyticsChart.data.datasets[1].data = data.map(d => d.unique_views);
-                analyticsChart.update();
-            } catch (error) {
-                console.error(`Error fetching graph data:`, error);
-            }
-        }
-
-        btnGroup.addEventListener('click', (e) => {
-            if (e.target.tagName === 'BUTTON') {
-                btnGroup.querySelector('.active').classList.remove('active');
-                e.target.classList.add('active');
-                fetchGraphData();
-            }
-        });
-        domainFilter.addEventListener('change', fetchGraphData);
 
         // --- SCRIPT SNIPPET & COPY ---
         function generateTrackingScript() {
@@ -219,56 +111,26 @@
       body: JSON.stringify(payload),
       mode: 'cors'
     });
-  } catch(e) { console.error('Analytics script failed:', e); }
+  } catch(e) { /* Analytics script failed silently */ }
 })();
 <\/script>`;
             
             fullTrackingScript = scriptContent;
-            trackingScriptBlock.innerHTML = ''; // Clear previous content
-
-            const lines = scriptContent.split('\n');
-            lines.forEach((line, index) => {
-                const span = document.createElement('span');
-                span.textContent = line + '\n';
-                span.style.opacity = '0';
-                span.style.display = 'block';
-                span.style.transition = 'opacity 0.3s ease-in-out';
-                trackingScriptBlock.appendChild(span);
-
-                setTimeout(() => {
-                    span.style.opacity = '1';
-                }, index * 100);
-            });
+            trackingScriptBlock.textContent = scriptContent;
         }
 
         copyScriptButton.addEventListener('click', () => {
             if (!fullTrackingScript) return;
-            const textArea = document.createElement('textarea');
-            textArea.value = fullTrackingScript;
-            document.body.appendChild(textArea);
-            textArea.select();
-            try {
-                document.execCommand('copy');
-                copyScriptButton.textContent = 'COPIED!';
-                setTimeout(() => { copyScriptButton.textContent = 'COPY'; }, 2000);
-            } catch (err) {
+            navigator.clipboard.writeText(fullTrackingScript).then(() => {
+                copyScriptButton.textContent = 'Copied!';
+                setTimeout(() => { copyScriptButton.textContent = 'Copy Script'; }, 2000);
+            }).catch(err => {
                 console.error('Failed to copy script: ', err);
-                copyScriptButton.textContent = 'ERROR';
-            }
-            document.body.removeChild(textArea);
+                copyScriptButton.textContent = 'Error';
+            });
         });
 
         // --- DOMAIN MANAGEMENT ---
-        async function populateDomainFilter(domains) {
-            domainFilter.innerHTML = '<option value="all">All Domains</option>';
-            domains.forEach(domain => {
-                const option = document.createElement('option');
-                option.value = domain;
-                option.textContent = domain;
-                domainFilter.appendChild(option);
-            });
-        }
-
         async function fetchTrackedDomains() {
             try {
                 const response = await fetch('/api/domains');
@@ -278,16 +140,15 @@
                     domains.sort();
                     domains.forEach(domain => {
                         const li = document.createElement('li');
-                        li.innerHTML = `<span class="text-gray-500 mr-2">-</span>${domain}`;
+                        li.innerHTML = `- <a href="details.html?domain=${domain}" target="_blank">${domain}</a>`;
                         trackedDomainsList.appendChild(li);
                     });
-                    await populateDomainFilter(domains);
                 } else {
-                    trackedDomainsList.innerHTML = '<li class="text-gray-500">No domains tracked.</li>';
+                    trackedDomainsList.innerHTML = '<li>No domains tracked.</li>';
                 }
             } catch (error) {
                 console.error('Error fetching domains:', error);
-                trackedDomainsList.innerHTML = '<li class="text-red-500">Error loading domains.</li>';
+                trackedDomainsList.innerHTML = '<li>Error loading domains.</li>';
             }
         }
 
@@ -295,8 +156,7 @@
             e.preventDefault();
             const domain = domainInput.value.trim();
             if (!domain) return;
-            formMessage.textContent = 'Executing...';
-            formMessage.className = 'text-sm text-gray-500';
+            formMessage.textContent = 'Adding...';
             try {
                 const response = await fetch('/api/domains', {
                     method: 'POST',
@@ -304,8 +164,7 @@
                     body: JSON.stringify({ domain }),
                 });
                 if (response.ok) {
-                    formMessage.textContent = `SUCCESS: Domain '${domain}' added.`;
-                    formMessage.className = 'text-sm text-emerald-400';
+                    formMessage.textContent = `Success: Domain '${domain}' added.`;
                     domainInput.value = '';
                     await fetchTrackedDomains();
                     await fetchDomainSummaries();
@@ -315,12 +174,11 @@
                 }
             } catch (error) {
                 console.error('Error adding domain:', error);
-                formMessage.textContent = `ERROR: ${error.message}`;
-                formMessage.className = 'text-sm text-red-500';
+                formMessage.textContent = `Error: ${error.message}`;
             }
         });
         
-        // --- NEW: DOMAIN SUMMARY ---
+        // --- DATA FETCHING & RENDERING ---
         async function fetchDomainSummaries() {
             try {
                 const response = await fetch('/api/bpx?view=domain_summary');
@@ -328,30 +186,22 @@
                 const domains = Object.keys(data).sort();
 
                 if (domains.length === 0) {
-                    domainSummaryContent.innerHTML = '<p class="text-center text-gray-500 p-4">No summary data available.</p>';
+                    domainSummaryContent.innerHTML = '<p>No summary data available.</p>';
                     return;
                 }
 
-                let tableHtml = `<table class="w-full text-sm">
-                    <thead>
-                        <tr class="border-b border-gray-700 text-left">
-                            <th class="p-3 font-medium text-gray-400">DOMAIN</th>
-                            <th class="p-3 font-medium text-gray-400 text-right">TODAY</th>
-                            <th class="p-3 font-medium text-gray-400 text-right">THIS WEEK</th>
-                            <th class="p-3 font-medium text-gray-400 text-right">THIS MONTH</th>
-                            <th class="p-3 font-medium text-gray-400 text-right">THIS YEAR</th>
-                        </tr>
-                    </thead>
+                let tableHtml = `<table>
+                    <thead><tr><th>Domain</th><th>Today</th><th>This Week</th><th>This Month</th><th>This Year</th></tr></thead>
                     <tbody>`;
                 
                 domains.forEach(domain => {
                     const stats = data[domain];
-                    tableHtml += `<tr class="border-b border-gray-800 hover:bg-gray-800/50">
-                        <td class="p-3 text-cyan-400">${domain}</td>
-                        <td class="p-3 text-right text-amber-400 font-semibold">${stats.daily.toLocaleString()}</td>
-                        <td class="p-3 text-right text-amber-400 font-semibold">${stats.weekly.toLocaleString()}</td>
-                        <td class="p-3 text-right text-amber-400 font-semibold">${stats.monthly.toLocaleString()}</td>
-                        <td class="p-3 text-right text-amber-400 font-semibold">${stats.yearly.toLocaleString()}</td>
+                    tableHtml += `<tr>
+                        <td><a href="details.html?domain=${domain}" target="_blank">${domain}</a></td>
+                        <td>${stats.daily.toLocaleString()}</td>
+                        <td>${stats.weekly.toLocaleString()}</td>
+                        <td>${stats.monthly.toLocaleString()}</td>
+                        <td>${stats.yearly.toLocaleString()}</td>
                     </tr>`;
                 });
 
@@ -359,71 +209,55 @@
                 domainSummaryContent.innerHTML = tableHtml;
             } catch(error) {
                 console.error('Error fetching domain summaries:', error);
-                domainSummaryContent.innerHTML = '<p class="text-center text-red-500 p-4">Failed to load domain summaries.</p>';
+                domainSummaryContent.innerHTML = '<p>Failed to load domain summaries.</p>';
             }
         }
 
-        // --- PAGE DETAILS ---
         async function fetchPageDetails() {
             try {
                 const response = await fetch('/api/bpx');
                 const data = await response.json();
-                if (loadingState) loadingState.remove();
                 analyticsContainer.innerHTML = '';
                 const domains = Object.keys(data).sort();
                 if (domains.length === 0) {
-                    analyticsContainer.innerHTML = '<div class="terminal-card rounded-lg p-4 text-center text-gray-500">No page data received yet.</div>';
+                    analyticsContainer.innerHTML = '<p>No page data received yet.</p>';
                     return;
                 }
                 
                 for (const domain of domains) {
                     const pages = data[domain].sort((a, b) => b.views - a.views);
-                    const domainCard = document.createElement('details');
-                    domainCard.className = 'terminal-card rounded-lg overflow-hidden';
-                    domainCard.open = true;
+                    const domainDetails = document.createElement('details');
+                    domainDetails.open = true;
+                    
                     let pagesHtml = pages.map(page => {
                         const path = new URL(page.url).pathname;
-                        return `<tr class="domain-item border-b border-gray-800 hover:bg-gray-800/50 transition-colors">
-                            <td class="p-3 text-cyan-400 url-path" title="${page.url}">${path}</td>
-                            <td class="p-3 text-right text-cyan-400 font-semibold">${(page.unique_views || 0).toLocaleString()}</td>
-                            <td class="p-3 text-right text-amber-400 font-semibold">${page.views.toLocaleString()}</td>
+                        return `<tr>
+                            <td title="${page.url}">${path}</td>
+                            <td>${(page.unique_views || 0).toLocaleString()}</td>
+                            <td>${page.views.toLocaleString()}</td>
                         </tr>`;
                     }).join('');
-                    domainCard.innerHTML = `<summary class="terminal-header px-4 py-3 font-semibold cursor-pointer select-none">[ page_details: ${domain} ]</summary>
-                        <div class="p-2">
-                            <table class="w-full text-sm">
-                                <thead>
-                                    <tr class="border-b border-gray-700 text-left">
-                                        <th class="p-3 font-medium text-gray-400">PATH</th>
-                                        <th class="p-3 font-medium text-gray-400 text-right">UNIQUES</th>
-                                        <th class="p-3 font-medium text-gray-400 text-right">VIEWS</th>
-                                    </tr>
-                                </thead>
-                                <tbody>${pagesHtml}</tbody>
-                            </table>
-                        </div>`;
-                    analyticsContainer.appendChild(domainCard);
+                    
+                    domainDetails.innerHTML = `<summary><h3><a href="details.html?domain=${domain}" target="_blank">${domain}</a></h3></summary>
+                        <table>
+                            <thead><tr><th>Path</th><th>Uniques</th><th>Views</th></tr></thead>
+                            <tbody>${pagesHtml}</tbody>
+                        </table>`;
+                    analyticsContainer.appendChild(domainDetails);
                 }
             } catch (error) {
                 console.error('Error fetching page details:', error);
-                if (loadingState) loadingState.remove();
-                analyticsContainer.innerHTML = '<div class="terminal-card rounded-lg p-4 text-center text-red-500">Failed to load page details.</div>';
+                analyticsContainer.innerHTML = '<p>Failed to load page details.</p>';
             }
         }
 
-        // --- Initial data fetch on page load ---
-        async function initializeDashboard() {
+        // --- Initial Load ---
+        document.addEventListener('DOMContentLoaded', () => {
             generateTrackingScript();
-            await fetchTrackedDomains();
-            initializeChart();
-            await Promise.all([
-                fetchGraphData(),
-                fetchDomainSummaries(),
-                fetchPageDetails()
-            ]);
-        }
-
-        initializeDashboard();
+            fetchTrackedDomains();
+            fetchDomainSummaries();
+            fetchPageDetails();
+        });
     </script>
 </body>
 </html>
