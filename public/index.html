@@ -67,9 +67,12 @@
             <p class="text-gray-500 mt-2">// Page view statistics for all tracked sites</p>
         </header>
 
+        <!-- Main Grid -->
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
             
+            <!-- Left Column: Controls -->
             <div class="lg:col-span-1 space-y-8">
+                <!-- Domain Management -->
                 <section class="terminal-card rounded-lg shadow-lg">
                     <div class="terminal-header px-4 py-2 rounded-t-lg font-semibold">[ manage_tracked_domains ]</div>
                     <div class="p-4">
@@ -84,6 +87,7 @@
                     </div>
                 </section>
 
+                <!-- Tracking Snippet -->
                 <section class="terminal-card rounded-lg shadow-lg">
                     <div class="terminal-header px-4 py-2 rounded-t-lg font-semibold">[ get_tracking_script ]</div>
                     <div class="p-4">
@@ -96,7 +100,9 @@
                 </section>
             </div>
 
+            <!-- Right Column: Analytics -->
             <div class="lg:col-span-2 space-y-8">
+                <!-- Graph Section -->
                 <section class="terminal-card rounded-lg shadow-lg">
                     <div class="terminal-header px-4 py-3 rounded-t-lg font-semibold flex flex-wrap justify-between items-center gap-4">
                         <span>[ traffic_overview ]</span>
@@ -104,7 +110,7 @@
                             <select id="domain-filter" class="terminal-select text-xs bg-gray-800 border border-gray-600 rounded px-2 py-1">
                                 <option value="all">All Domains</option>
                             </select>
-                            <div id="graph-period-filter" class="btn-group text-xs border border-gray-600 rounded inline-flex">
+                            <div class="btn-group text-xs border border-gray-600 rounded inline-flex">
                                 <button data-period="daily" class="px-2 py-1 active">Daily</button>
                                 <button data-period="weekly" class="px-2 py-1 border-l border-gray-600">Weekly</button>
                                 <button data-period="monthly" class="px-2 py-1 border-l border-gray-600">Monthly</button>
@@ -116,19 +122,18 @@
                         <canvas id="analyticsChart"></canvas>
                     </div>
                 </section>
-                
-                <section class="terminal-card rounded-lg shadow-lg -mb-2">
-                    <div class="terminal-header px-4 py-3 rounded-t-lg font-semibold flex flex-wrap justify-between items-center gap-4">
-                        <span>[ page_analytics_summary ]</span>
-                         <div id="summary-period-filter" class="btn-group text-xs border border-gray-600 rounded inline-flex">
-                            <button data-period="daily" class="px-2 py-1 active">Daily</button>
-                            <button data-period="weekly" class="px-2 py-1 border-l border-gray-600">Weekly</button>
-                            <button data-period="monthly" class="px-2 py-1 border-l border-gray-600">Monthly</button>
-                        </div>
+
+                <!-- NEW: Domain Summaries Section -->
+                <section id="domain-summary-container" class="terminal-card rounded-lg shadow-lg">
+                    <div class="terminal-header px-4 py-3 rounded-t-lg font-semibold">[ domain_summaries: unique_visitors ]</div>
+                    <div id="domain-summary-content" class="p-2">
+                        <p class="text-center text-gray-500 p-4">Loading summaries...</p>
                     </div>
                 </section>
+
+                <!-- Page Details Section -->
                 <main id="analytics-container" class="space-y-6">
-                    <div id="loading-state" class="text-center text-gray-500"><p>Fetching analytics data...</p></div>
+                    <div id="loading-state" class="text-center text-gray-500"><p>Fetching page details...</p></div>
                 </main>
             </div>
         </div>
@@ -149,9 +154,9 @@
         const trackingScriptBlock = document.getElementById('tracking-script-block');
         const copyScriptButton = document.getElementById('copy-script-button');
         const chartCanvas = document.getElementById('analyticsChart').getContext('2d');
-        const graphPeriodFilter = document.getElementById('graph-period-filter');
-        const summaryPeriodFilter = document.getElementById('summary-period-filter'); // New ref
+        const btnGroup = document.querySelector('.btn-group');
         const domainFilter = document.getElementById('domain-filter');
+        const domainSummaryContent = document.getElementById('domain-summary-content');
 
         let analyticsChart;
         let fullTrackingScript = '';
@@ -176,7 +181,7 @@
         }
 
         async function fetchGraphData() {
-            const period = graphPeriodFilter.querySelector('.active').dataset.period;
+            const period = btnGroup.querySelector('.active').dataset.period;
             const domain = domainFilter.value;
             try {
                 const response = await fetch(`/api/bpx?view=graph&period=${period}&domain=${domain}`);
@@ -191,23 +196,14 @@
             }
         }
 
-        graphPeriodFilter.addEventListener('click', (e) => {
+        btnGroup.addEventListener('click', (e) => {
             if (e.target.tagName === 'BUTTON') {
-                graphPeriodFilter.querySelector('.active').classList.remove('active');
+                btnGroup.querySelector('.active').classList.remove('active');
                 e.target.classList.add('active');
                 fetchGraphData();
             }
         });
         domainFilter.addEventListener('change', fetchGraphData);
-
-        // --- NEW: Event listener for summary period ---
-        summaryPeriodFilter.addEventListener('click', (e) => {
-            if (e.target.tagName === 'BUTTON') {
-                summaryPeriodFilter.querySelector('.active').classList.remove('active');
-                e.target.classList.add('active');
-                fetchAnalyticsSummary();
-            }
-        });
 
         // --- SCRIPT SNIPPET & COPY ---
         function generateTrackingScript() {
@@ -228,22 +224,43 @@
 <\/script>`;
             
             fullTrackingScript = scriptContent;
-            trackingScriptBlock.textContent = scriptContent.replace(/<\/script>/g, '<\\/script>');
+            trackingScriptBlock.innerHTML = ''; // Clear previous content
+
+            const lines = scriptContent.split('\n');
+            lines.forEach((line, index) => {
+                const span = document.createElement('span');
+                span.textContent = line + '\n';
+                span.style.opacity = '0';
+                span.style.display = 'block';
+                span.style.transition = 'opacity 0.3s ease-in-out';
+                trackingScriptBlock.appendChild(span);
+
+                setTimeout(() => {
+                    span.style.opacity = '1';
+                }, index * 100);
+            });
         }
 
         copyScriptButton.addEventListener('click', () => {
-            navigator.clipboard.writeText(fullTrackingScript).then(() => {
+            if (!fullTrackingScript) return;
+            const textArea = document.createElement('textarea');
+            textArea.value = fullTrackingScript;
+            document.body.appendChild(textArea);
+            textArea.select();
+            try {
+                document.execCommand('copy');
                 copyScriptButton.textContent = 'COPIED!';
                 setTimeout(() => { copyScriptButton.textContent = 'COPY'; }, 2000);
-            }, (err) => {
+            } catch (err) {
                 console.error('Failed to copy script: ', err);
                 copyScriptButton.textContent = 'ERROR';
-            });
+            }
+            document.body.removeChild(textArea);
         });
 
         // --- DOMAIN MANAGEMENT ---
         async function populateDomainFilter(domains) {
-            domainFilter.innerHTML = '<option value="all">All Domains</option>'; // Reset
+            domainFilter.innerHTML = '<option value="all">All Domains</option>';
             domains.forEach(domain => {
                 const option = document.createElement('option');
                 option.value = domain;
@@ -291,6 +308,7 @@
                     formMessage.className = 'text-sm text-emerald-400';
                     domainInput.value = '';
                     await fetchTrackedDomains();
+                    await fetchDomainSummaries();
                 } else {
                     const { message } = await response.json();
                     throw new Error(message || 'Failed to add domain.');
@@ -301,25 +319,65 @@
                 formMessage.className = 'text-sm text-red-500';
             }
         });
-
-        // --- MODIFIED: ANALYTICS SUMMARY TABLE DISPLAY ---
-        async function fetchAnalyticsSummary() {
-            const period = summaryPeriodFilter.querySelector('.active').dataset.period;
-            analyticsContainer.innerHTML = '<div id="loading-state" class="text-center text-gray-500"><p>Fetching analytics data...</p></div>';
-
+        
+        // --- NEW: DOMAIN SUMMARY ---
+        async function fetchDomainSummaries() {
             try {
-                const response = await fetch(`/api/bpx?period=${period}`);
+                const response = await fetch('/api/bpx?view=domain_summary');
                 const data = await response.json();
-                analyticsContainer.innerHTML = '';
-                const domains = Object.keys(data);
+                const domains = Object.keys(data).sort();
+
                 if (domains.length === 0) {
-                    analyticsContainer.innerHTML = '<div class="terminal-card rounded-lg p-4 text-center text-gray-500">No summary data for this period.</div>';
+                    domainSummaryContent.innerHTML = '<p class="text-center text-gray-500 p-4">No summary data available.</p>';
                     return;
                 }
-                domains.sort();
+
+                let tableHtml = `<table class="w-full text-sm">
+                    <thead>
+                        <tr class="border-b border-gray-700 text-left">
+                            <th class="p-3 font-medium text-gray-400">DOMAIN</th>
+                            <th class="p-3 font-medium text-gray-400 text-right">TODAY</th>
+                            <th class="p-3 font-medium text-gray-400 text-right">THIS WEEK</th>
+                            <th class="p-3 font-medium text-gray-400 text-right">THIS MONTH</th>
+                            <th class="p-3 font-medium text-gray-400 text-right">THIS YEAR</th>
+                        </tr>
+                    </thead>
+                    <tbody>`;
+                
+                domains.forEach(domain => {
+                    const stats = data[domain];
+                    tableHtml += `<tr class="border-b border-gray-800 hover:bg-gray-800/50">
+                        <td class="p-3 text-cyan-400">${domain}</td>
+                        <td class="p-3 text-right text-amber-400 font-semibold">${stats.daily.toLocaleString()}</td>
+                        <td class="p-3 text-right text-amber-400 font-semibold">${stats.weekly.toLocaleString()}</td>
+                        <td class="p-3 text-right text-amber-400 font-semibold">${stats.monthly.toLocaleString()}</td>
+                        <td class="p-3 text-right text-amber-400 font-semibold">${stats.yearly.toLocaleString()}</td>
+                    </tr>`;
+                });
+
+                tableHtml += `</tbody></table>`;
+                domainSummaryContent.innerHTML = tableHtml;
+            } catch(error) {
+                console.error('Error fetching domain summaries:', error);
+                domainSummaryContent.innerHTML = '<p class="text-center text-red-500 p-4">Failed to load domain summaries.</p>';
+            }
+        }
+
+        // --- PAGE DETAILS ---
+        async function fetchPageDetails() {
+            try {
+                const response = await fetch('/api/bpx');
+                const data = await response.json();
+                if (loadingState) loadingState.remove();
+                analyticsContainer.innerHTML = '';
+                const domains = Object.keys(data).sort();
+                if (domains.length === 0) {
+                    analyticsContainer.innerHTML = '<div class="terminal-card rounded-lg p-4 text-center text-gray-500">No page data received yet.</div>';
+                    return;
+                }
+                
                 for (const domain of domains) {
-                    const pages = data[domain];
-                    pages.sort((a, b) => b.views - a.views);
+                    const pages = data[domain].sort((a, b) => b.views - a.views);
                     const domainCard = document.createElement('details');
                     domainCard.className = 'terminal-card rounded-lg overflow-hidden';
                     domainCard.open = true;
@@ -331,7 +389,7 @@
                             <td class="p-3 text-right text-amber-400 font-semibold">${page.views.toLocaleString()}</td>
                         </tr>`;
                     }).join('');
-                    domainCard.innerHTML = `<summary class="terminal-header px-4 py-3 font-semibold cursor-pointer select-none">[ domain: ${domain} ]</summary>
+                    domainCard.innerHTML = `<summary class="terminal-header px-4 py-3 font-semibold cursor-pointer select-none">[ page_details: ${domain} ]</summary>
                         <div class="p-2">
                             <table class="w-full text-sm">
                                 <thead>
@@ -347,8 +405,9 @@
                     analyticsContainer.appendChild(domainCard);
                 }
             } catch (error) {
-                console.error('Error fetching analytics summary:', error);
-                analyticsContainer.innerHTML = '<div class="terminal-card rounded-lg p-4 text-center text-red-500">Failed to load analytics summary.</div>';
+                console.error('Error fetching page details:', error);
+                if (loadingState) loadingState.remove();
+                analyticsContainer.innerHTML = '<div class="terminal-card rounded-lg p-4 text-center text-red-500">Failed to load page details.</div>';
             }
         }
 
@@ -357,11 +416,15 @@
             generateTrackingScript();
             await fetchTrackedDomains();
             initializeChart();
-            await fetchGraphData();
-            await fetchAnalyticsSummary();
+            await Promise.all([
+                fetchGraphData(),
+                fetchDomainSummaries(),
+                fetchPageDetails()
+            ]);
         }
 
         initializeDashboard();
     </script>
 </body>
 </html>
+
