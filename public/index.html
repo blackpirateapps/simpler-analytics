@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analytics Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Fira Code', monospace; }
+        .cursor::after { content: '_'; animation: blink 1s step-end infinite; }
+        @keyframes blink { 50% { opacity: 0; } }
+        .terminal-card { background-color: rgba(17, 24, 39, 0.8); border: 1px solid #374151; backdrop-filter: blur(10px); }
+        .terminal-header { background-color: #374151; color: #d1d5db; }
+        .terminal-input { background-color: transparent; border: none; outline: none; color: #6ee7b7; }
+        .data-row:hover { background-color: rgba(55, 65, 81, 0.5); cursor: pointer; }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-300 antialiased">
+
+    <div class="container mx-auto p-4 md:p-8">
+        <header class="text-center mb-8">
+            <h1 class="text-3xl md:text-4xl font-semibold text-emerald-400 cursor">bp/analytics_dashboard</h1>
+            <p class="text-gray-500 mt-2">// Real-time traffic monitor</p>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- Left Column: Controls -->
+            <div class="lg:col-span-1 space-y-8">
+                <section class="terminal-card rounded-lg shadow-lg">
+                    <div class="terminal-header px-4 py-2 rounded-t-lg font-semibold">[ manage_tracked_domains ]</div>
+                    <div class="p-4">
+                        <form id="add-domain-form" class="flex items-center space-x-2 mb-4">
+                            <span class="text-emerald-400 font-bold">&gt;</span>
+                            <input type="text" id="domain-input" placeholder="add domain..." class="terminal-input flex-grow p-1" required>
+                            <button type="submit" class="text-gray-400 hover:text-emerald-400 transition-colors">ADD</button>
+                        </form>
+                        <div id="form-message" class="text-sm min-h-[1.25rem] font-mono"></div>
+                        <h3 class="text-gray-400 mt-4 mb-2">// tracked_domains.list</h3>
+                        <ul id="tracked-domains-list" class="text-cyan-400 space-y-1 text-sm"><li>Initializing...</li></ul>
+                    </div>
+                </section>
+
+                <section class="terminal-card rounded-lg shadow-lg">
+                    <div class="terminal-header px-4 py-2 rounded-t-lg font-semibold">[ get_tracking_script ]</div>
+                    <div class="p-4">
+                        <p class="text-gray-500 text-sm mb-4">// Add to &lt;body&gt; on sites to track.</p>
+                        <div class="relative">
+                            <pre><code id="tracking-script-block" class="bg-[#111827] text-xs p-4 rounded block whitespace-pre-wrap"></code></pre>
+                            <button id="copy-script-button" class="absolute top-2 right-2 bg-gray-700 text-gray-300 text-xs font-semibold px-2 py-1 rounded hover:bg-gray-600 transition">COPY</button>
+                        </div>
+                    </div>
+                </section>
+            </div>
+
+            <!-- Right Column: Analytics Display -->
+            <main class="lg:col-span-2 terminal-card rounded-lg shadow-lg">
+                <div id="analytics-header" class="terminal-header px-4 py-3 rounded-t-lg font-semibold"></div>
+                <div id="analytics-content" class="p-4">
+                    <p class="text-gray-500">Fetching analytics data...</p>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <script>
+        // --- DOM Element Refs ---
+        const analyticsHeader = document.getElementById('analytics-header');
+        const analyticsContent = document.getElementById('analytics-content');
+        const addDomainForm = document.getElementById('add-domain-form');
+        const domainInput = document.getElementById('domain-input');
+        const formMessage = document.getElementById('form-message');
+        const trackedDomainsList = document.getElementById('tracked-domains-list');
+        const trackingScriptBlock = document.getElementById('tracking-script-block');
+        const copyScriptButton = document.getElementById('copy-script-button');
+        let fullTrackingScript = '';
+
+        // --- RENDER FUNCTIONS ---
+        function renderSummaryView(data) {
+            analyticsHeader.innerHTML = `<span>[ SUMMARY_VIEW ]</span>`;
+            const domains = Object.keys(data).sort();
+            if (domains.length === 0) {
+                analyticsContent.innerHTML = '<p class="text-gray-500">No summary data received yet.</p>';
+                return;
+            }
+
+            let html = '<div class="space-y-6">';
+            for (const domain of domains) {
+                html += `
+                    <div>
+                        <h3 class="text-gray-400 mb-2">// domain: ${domain}</h3>
+                        <table class="w-full text-sm">
+                            <thead>
+                                <tr class="border-b border-gray-700 text-left">
+                                    <th class="p-2 font-medium text-gray-400">PATH</th>
+                                    <th class="p-2 font-medium text-gray-400 text-right">UNIQUES</th>
+                                    <th class="p-2 font-medium text-gray-400 text-right">VIEWS</th>
+                                </tr>
+                            </thead>
+                            <tbody>`;
+                const pages = data[domain].sort((a, b) => b.views - a.views);
+                for (const page of pages) {
+                    const path = new URL(page.url).pathname;
+                    html += `
+                        <tr class="data-row border-b border-gray-800" onclick="showLogDetails('${encodeURIComponent(page.url)}')">
+                            <td class="p-2 text-cyan-400" title="${page.url}">${path}</td>
+                            <td class="p-2 text-right text-cyan-400 font-semibold">${(page.unique_views || 0).toLocaleString()}</td>
+                            <td class="p-2 text-right text-amber-400 font-semibold">${page.views.toLocaleString()}</td>
+                        </tr>`;
+                }
+                html += `</tbody></table></div>`;
+            }
+            html += `</div>`;
+            analyticsContent.innerHTML = html;
+        }
+
+        function renderLogDetailsView(url, logs) {
+            const decodedUrl = decodeURIComponent(url);
+            const path = new URL(decodedUrl).pathname;
+            analyticsHeader.innerHTML = `
+                <div class="flex justify-between items-center">
+                    <span>[ LOG_DETAILS: <span class="text-cyan-400">${path}</span> ]</span>
+                    <button onclick="showSummaryView()" class="text-xs font-semibold hover:text-emerald-400 transition-colors">&lt; BACK</button>
+                </div>`;
+            
+            if (logs.length === 0) {
+                analyticsContent.innerHTML = '<p class="text-gray-500">No detailed logs found for this URL.</p>';
+                return;
+            }
+
+            let tableHtml = `
+                <div class="overflow-x-auto">
+                    <table class="w-full text-xs">
+                        <thead>
+                            <tr class="border-b border-gray-700 text-left">
+                                <th class="p-2 font-medium text-gray-400">TIMESTAMP (UTC)</th>
+                                <th class="p-2 font-medium text-gray-400">IP ADDRESS</th>
+                                <th class="p-2 font-medium text-gray-400">BROWSER</th>
+                                <th class="p-2 font-medium text-gray-400">DEVICE</th>
+                                <th class="p-2 font-medium text-gray-400">REFERRER</th>
+                            </tr>
+                        </thead>
+                        <tbody>`;
+            logs.forEach(log => {
+                const timestamp = new Date(log.timestamp).toLocaleString('en-GB', { timeZone: 'UTC' });
+                const referrer = log.referrer ? new URL(log.referrer).hostname : 'direct';
+                tableHtml += `
+                    <tr class="border-b border-gray-800">
+                        <td class="p-2 text-gray-400">${timestamp}</td>
+                        <td class="p-2 text-cyan-400">${log.ip_address}</td>
+                        <td class="p-2 text-cyan-400">${log.browser}</td>
+                        <td class="p-2 text-cyan-400">${log.device_type}</td>
+                        <td class="p-2 text-cyan-400" title="${log.referrer || ''}">${referrer}</td>
+                    </tr>`;
+            });
+            tableHtml += '</tbody></table></div>';
+            analyticsContent.innerHTML = tableHtml;
+        }
+
+        // --- DATA FETCHING ---
+        async function showSummaryView() {
+            analyticsContent.innerHTML = '<p class="text-gray-500">Fetching summary data...</p>';
+            try {
+                const response = await fetch('/api/bpx');
+                if (!response.ok) throw new Error('Failed to fetch summary.');
+                const data = await response.json();
+                renderSummaryView(data);
+            } catch (error) {
+                analyticsContent.innerHTML = `<p class="text-red-500">Error: ${error.message}</p>`;
+            }
+        }
+
+        async function showLogDetails(url) {
+            analyticsContent.innerHTML = `<p class="text-gray-500">Fetching logs for ${decodeURIComponent(url)}...</p>`;
+            try {
+                const response = await fetch(`/api/bpx?view=details&url=${url}`);
+                if (!response.ok) throw new Error('Failed to fetch details.');
+                const logs = await response.json();
+                renderLogDetailsView(url, logs);
+            } catch (error) {
+                analyticsContent.innerHTML = `<p class="text-red-500">Error: ${error.message}</p>`;
+            }
+        }
+
+        // --- DOMAIN & SCRIPT MANAGEMENT ---
+        function generateTrackingScript() {
+            const endpoint = `${window.location.origin}/api/bpx`;
+            const scriptContent = `<script>
+(async function() {
+  try {
+    await fetch('${endpoint}', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ data: { u: window.location.href, r: document.referrer } }),
+      mode: 'cors'
+    });
+  } catch(e) { /* Analytics script failed silently */ }
+})();
+<\/script>`;
+            fullTrackingScript = scriptContent;
+            trackingScriptBlock.textContent = scriptContent;
+        }
+
+        copyScriptButton.addEventListener('click', () => {
+            navigator.clipboard.writeText(fullTrackingScript).then(() => {
+                copyScriptButton.textContent = 'COPIED!';
+                setTimeout(() => { copyScriptButton.textContent = 'COPY'; }, 2000);
+            }, () => {
+                copyScriptButton.textContent = 'ERROR';
+            });
+        });
+        
+        async function fetchTrackedDomains() {
+            try {
+                const response = await fetch('/api/domains');
+                const { domains } = await response.json();
+                trackedDomainsList.innerHTML = '';
+                if (domains.length > 0) {
+                    domains.sort().forEach(domain => {
+                        const li = document.createElement('li');
+                        li.innerHTML = `<span class="text-gray-500 mr-2">-</span>${domain}`;
+                        trackedDomainsList.appendChild(li);
+                    });
+                } else {
+                    trackedDomainsList.innerHTML = '<li class="text-gray-500">No domains tracked.</li>';
+                }
+            } catch (error) {
+                trackedDomainsList.innerHTML = '<li class="text-red-500">Error loading domains.</li>';
+            }
+        }
+
+        addDomainForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const domain = domainInput.value.trim();
+            if (!domain) return;
+            formMessage.textContent = 'Executing...';
+            try {
+                const response = await fetch('/api/domains', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ domain }),
+                });
+                if (response.ok) {
+                    formMessage.textContent = `SUCCESS: Domain '${domain}' added.`;
+                    formMessage.className = 'text-sm text-emerald-400';
+                    domainInput.value = '';
+                    await fetchTrackedDomains();
+                } else {
+                    const { message } = await response.json();
+                    throw new Error(message || 'Failed to add domain.');
+                }
+            } catch (error) {
+                formMessage.textContent = `ERROR: ${error.message}`;
+                formMessage.className = 'text-sm text-red-500';
+            }
+        });
+
+        // --- Initializer ---
+        function initializeDashboard() {
+            generateTrackingScript();
+            fetchTrackedDomains();
+            showSummaryView();
+        }
+
+        // Make functions globally accessible for inline onclick handlers
+        window.showLogDetails = showLogDetails;
+        window.showSummaryView = showSummaryView;
+
+        initializeDashboard();
+    </script>
+</body>
+</html>
