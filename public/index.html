@@ -10,31 +10,37 @@
         body { 
             font-family: 'Fira Code', monospace; 
             line-height: 1.6;
+            background-color: #f0f0f0;
+        }
+        .brutalist-card {
+            background-color: white;
+            border: 2px solid black;
+            box-shadow: 4px 4px 0px black;
         }
         .time-range-btn {
             background: transparent;
-            color: #333;
-            border: 1px solid #333;
+            color: #000;
+            border: 2px solid #000;
             padding: 4px 12px;
             margin: 0 5px 0 0;
             cursor: pointer;
             font-size: 14px;
-            border-radius: 4px;
-            transition: all 0.2s ease-in-out;
+            font-weight: 600;
+            transition: all 0.1s ease-in-out;
         }
-        .time-range-btn.active {
+        .time-range-btn.active, .time-range-btn:hover {
             background: #000;
             color: #fff;
         }
         .data-list-row {
-            border-bottom: 1px solid #ddd;
+            border-bottom: 2px solid #000;
             padding: 10px 5px;
             display: flex;
             justify-content: space-between;
             align-items: center;
         }
         .data-list-row:hover {
-            background-color: #f9f9f9;
+            background-color: #ffff00;
             cursor: pointer;
         }
         .section-header {
@@ -48,73 +54,73 @@
         .arrow { transition: transform 0.2s ease-in-out; }
     </style>
 </head>
-<body class="bg-white text-gray-800 antialiased">
+<body class="text-black antialiased">
 
     <div id="main-container" class="max-w-4xl mx-auto p-5 md:p-8">
         <h1 class="text-3xl font-bold mb-6 text-center md:text-left">Web Analytics Overview</h1>
         
-        <details class="mb-8 bg-gray-50 rounded-lg border border-gray-200">
+        <details class="mb-8 brutalist-card">
             <summary class="font-semibold cursor-pointer text-lg p-4 flex justify-between items-center">
                 <span>Settings & Tracking Script</span>
                 <svg class="w-5 h-5 arrow" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
             </summary>
-            <div class="p-4 mt-2 grid grid-cols-1 md:grid-cols-2 gap-8 pt-4 border-t border-gray-200">
+            <div class="p-4 mt-2 grid grid-cols-1 md:grid-cols-2 gap-8 pt-4 border-t-2 border-black">
                 <div>
-                    <h3 class="font-semibold mb-3 text-gray-700">Manage Tracked Domains</h3>
+                    <h3 class="font-semibold mb-3">Manage Tracked Domains</h3>
                     <form id="add-domain-form" class="flex items-center space-x-2 mb-4">
-                        <input type="text" id="domain-input" placeholder="example.com" class="border border-gray-300 rounded px-2 py-1 flex-grow w-full" required>
-                        <button type="submit" class="bg-black text-white px-4 py-1 rounded hover:bg-gray-800 transition-colors">ADD</button>
+                        <input type="text" id="domain-input" placeholder="example.com" class="border-2 border-black px-2 py-1 flex-grow w-full" required>
+                        <button type="submit" class="bg-black text-white px-4 py-1 border-2 border-black hover:bg-gray-800">ADD</button>
                     </form>
                     <div id="form-message" class="text-sm min-h-[1.25rem] font-mono"></div>
-                    <h4 class="text-gray-600 mt-4 mb-2 text-sm font-semibold">Tracked Domains:</h4>
-                    <ul id="tracked-domains-list" class="text-gray-800 space-y-1 text-sm"><li>Loading...</li></ul>
+                    <h4 class="mt-4 mb-2 text-sm font-semibold">Tracked Domains:</h4>
+                    <ul id="tracked-domains-list" class="space-y-1 text-sm"><li>Loading...</li></ul>
                 </div>
                 <div>
-                    <h3 class="font-semibold mb-3 text-gray-700">Get Tracking Script</h3>
-                    <p class="text-gray-500 text-sm mb-4">Add this script inside the &lt;body&gt; tag of any site you want to track.</p>
+                    <h3 class="font-semibold mb-3">Get Tracking Script</h3>
+                    <p class="text-sm mb-4">Add this script inside the &lt;body&gt; tag of any site you want to track.</p>
                     <div class="relative">
-                        <pre><code id="tracking-script-block" class="bg-gray-800 text-white text-xs p-4 rounded block whitespace-pre-wrap"></code></pre>
-                        <button id="copy-script-button" class="absolute top-2 right-2 bg-gray-600 text-white text-xs font-semibold px-2 py-1 rounded hover:bg-gray-500 transition">COPY</button>
+                        <pre><code id="tracking-script-block" class="bg-black text-white text-xs p-4 block whitespace-pre-wrap border-2 border-black"></code></pre>
+                        <button id="copy-script-button" class="absolute top-2 right-2 bg-white text-black border-2 border-black text-xs font-semibold px-2 py-1 hover:bg-yellow-300">COPY</button>
                     </div>
                 </div>
             </div>
         </details>
 
-        <header id="dashboard-header" class="mb-8 p-4 bg-gray-50 rounded-lg border border-gray-200">
+        <header id="dashboard-header" class="mb-8 p-4 brutalist-card">
             <div class="flex flex-wrap items-center gap-y-4 gap-x-8">
                 <div id="time-range-selector">
-                    <span class="mr-3 text-gray-600">Period:</span>
+                    <span class="mr-3">Period:</span>
                     <button data-period="all_time" class="time-range-btn active">All Time</button>
                     <button data-period="1d" class="time-range-btn">Last 24h</button>
                     <button data-period="7d" class="time-range-btn">Last 7 days</button>
                     <button data-period="30d" class="time-range-btn">Last 30 days</button>
                 </div>
                  <div id="domain-filter-container">
-                    <span class="mr-3 text-gray-600">Domain:</span>
-                    <select id="domain-filter" class="border border-gray-300 rounded px-2 py-1.5 text-sm">
+                    <span class="mr-3">Domain:</span>
+                    <select id="domain-filter" class="border-2 border-black p-1.5 text-sm bg-white">
                         <option value="all">All Domains</option>
                     </select>
                 </div>
             </div>
         </header>
 
-        <main id="analytics-content">
-            <p class="text-gray-500">Fetching analytics data...</p>
+        <main id="analytics-content" class="brutalist-card p-4">
+            <p>Fetching analytics data...</p>
         </main>
         
-        <div id="password-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center">
-            <div class="bg-white p-6 rounded-lg shadow-xl w-full max-w-sm">
+        <div id="password-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center p-4">
+            <div class="p-6 brutalist-card w-full max-w-sm">
                 <h3 class="text-lg font-semibold mb-4">Admin Access Required</h3>
-                <p id="password-prompt-message" class="text-sm text-gray-600 mb-4"></p>
-                <input type="password" id="admin-password-input" class="border border-gray-300 rounded w-full px-3 py-2 mb-4" placeholder="Enter Admin Password">
+                <p id="password-prompt-message" class="text-sm mb-4"></p>
+                <input type="password" id="admin-password-input" class="border-2 border-black w-full px-3 py-2 mb-4" placeholder="Enter Admin Password">
                 <div class="flex justify-end gap-3">
-                    <button id="password-cancel-btn" class="px-4 py-2 rounded bg-gray-200 hover:bg-gray-300">Cancel</button>
-                    <button id="password-submit-btn" class="px-4 py-2 rounded bg-black text-white hover:bg-gray-800">Submit</button>
+                    <button id="password-cancel-btn" class="px-4 py-2 border-2 border-black hover:bg-gray-200">Cancel</button>
+                    <button id="password-submit-btn" class="px-4 py-2 bg-black text-white border-2 border-black hover:bg-gray-800">Submit</button>
                 </div>
             </div>
         </div>
 
-        <footer class="text-center text-xs text-gray-500 mt-12 pt-5 border-t border-gray-200">
+        <footer class="text-center text-xs mt-12 pt-5 border-t-2 border-black">
             Last updated: <span id="last-updated"></span>
         </footer>
     </div>
@@ -178,7 +184,7 @@
                 { label: 'Avg. Active Time', value: formatSeconds(overview.avgSiteActiveTimeSeconds) },
             ];
 
-            const overviewHtml = overviewMetrics.map(m => `<div><div class="text-2xl font-bold">${m.value}</div><div class="text-sm text-gray-500">${m.label}</div></div>`).join('');
+            const overviewHtml = overviewMetrics.map(m => `<div><div class="text-2xl font-bold">${m.value}</div><div class="text-sm">${m.label}</div></div>`).join('');
             
             const topPagesHtml = topPages.length > 0 ? topPages.map(page => {
                 const totalViews = overview.pageViews || 0;
@@ -187,33 +193,33 @@
                 return `<div class="data-list-row" onclick="showLogDetails('${encodeURIComponent(page.url)}')">
                     <span>${path}</span>
                     <span class="flex gap-4 items-center text-sm">
-                        <span>${(page.unique_views || 0).toLocaleString()} <span class="text-gray-400">uniques</span></span>
-                        <span>${(page.views || 0).toLocaleString()} <span class="text-gray-400">views</span></span>
+                        <span>${(page.unique_views || 0).toLocaleString()} <span class="text-gray-500">uniques</span></span>
+                        <span>${(page.views || 0).toLocaleString()} <span class="text-gray-500">views</span></span>
                         <span class="text-gray-500 w-16 text-right">${percentage}%</span>
                     </span>
                 </div>`;
-            }).join('') : '<p class="text-gray-500 p-4 text-center">No page view data found for this period.</p>';
+            }).join('') : '<p class="p-4 text-center">No page view data found for this period.</p>';
 
-            analyticsContent.innerHTML = `<div class="mb-10"><h2 class="section-header">Overview</h2><div class="grid grid-cols-2 md:grid-cols-4 gap-5">${overviewHtml}</div></div><div><h2 class="section-header">Top Pages</h2><div class="border-t border-gray-200">${topPagesHtml}</div></div>`;
+            analyticsContent.innerHTML = `<div class="mb-10"><h2 class="section-header">Overview</h2><div class="grid grid-cols-2 md:grid-cols-4 gap-5">${overviewHtml}</div></div><div><h2 class="section-header">Top Pages</h2><div class="border-t-2 border-black">${topPagesHtml}</div></div>`;
         }
 
         function renderLogDetailsView(url, logs, isAdmin = false) {
             const path = new URL(decodeURIComponent(url)).pathname;
-            const ipHeader = isAdmin ? '<th class="p-2 font-semibold text-gray-500">IP ADDRESS</th>' : '';
+            const ipHeader = isAdmin ? '<th class="p-2 font-semibold">IP ADDRESS</th>' : '';
             const logsHtml = logs.map(log => {
                 const ipCell = isAdmin ? `<td class="p-2">${log.ip_address}</td>` : '';
-                return `<tr class="border-b border-gray-200 text-xs"><td class="p-2 text-gray-500">${new Date(log.timestamp).toLocaleString('en-GB',{timeZone:'UTC'})}</td><td class="p-2">${log.country}</td>${ipCell}<td class="p-2">${log.browser}</td><td class="p-2">${log.device_type}</td><td class="p-2" title="${log.referrer||''}">${log.referrer?new URL(log.referrer).hostname:'direct'}</td></tr>`;
+                return `<tr class="border-b-2 border-black text-xs"><td class="p-2 text-gray-500">${new Date(log.timestamp).toLocaleString('en-GB',{timeZone:'UTC'})}</td><td class="p-2">${log.country}</td>${ipCell}<td class="p-2">${log.browser}</td><td class="p-2">${log.device_type}</td><td class="p-2" title="${log.referrer||''}">${log.referrer?new URL(log.referrer).hostname:'direct'}</td></tr>`;
             }).join('');
             const showIpBtn = !isAdmin ? `<button onclick="showIpAddress('${url}')" class="text-xs font-semibold hover:text-blue-600">Show IP</button>` : '';
 
-            analyticsContent.innerHTML = `<div class="mb-10"><div class="flex justify-between items-center mb-4"><h2 class="section-header">Recent Activity: ${path}</h2><div class="flex gap-4 items-center">${showIpBtn}<button onclick="fetchDataAndRender()" class="text-sm font-semibold hover:text-blue-600">&lt; BACK</button></div></div><div class="overflow-x-auto border-t border-gray-200"><table class="w-full text-left"><thead><tr class="border-b border-gray-300 text-xs"><th class="p-2 font-semibold text-gray-500">TIMESTAMP (UTC)</th><th class="p-2 font-semibold text-gray-500">COUNTRY</th>${ipHeader}<th class="p-2 font-semibold text-gray-500">BROWSER</th><th class="p-2 font-semibold text-gray-500">DEVICE</th><th class="p-2 font-semibold text-gray-500">REFERRER</th></tr></thead><tbody>${logsHtml}</tbody></table></div></div>`;
+            analyticsContent.innerHTML = `<div class="mb-10"><div class="flex justify-between items-center mb-4"><h2 class="section-header">Recent Activity: ${path}</h2><div class="flex gap-4 items-center">${showIpBtn}<button onclick="fetchDataAndRender()" class="text-sm font-semibold hover:text-blue-600">&lt; BACK</button></div></div><div class="overflow-x-auto border-t-2 border-black"><table class="w-full text-left"><thead><tr class="border-b-2 border-black text-xs"><th class="p-2 font-semibold">TIMESTAMP (UTC)</th><th class="p-2 font-semibold">COUNTRY</th>${ipHeader}<th class="p-2 font-semibold">BROWSER</th><th class="p-2 font-semibold">DEVICE</th><th class="p-2 font-semibold">REFERRER</th></tr></thead><tbody>${logsHtml}</tbody></table></div></div>`;
         }
         
         // --- DATA FETCHING ---
         async function fetchDataAndRender() {
             const period = timeRangeSelector.querySelector('.active').dataset.period;
             const domain = domainFilter.value;
-            analyticsContent.innerHTML = '<p class="text-gray-500">Fetching analytics data...</p>';
+            analyticsContent.innerHTML = '<p>Fetching analytics data...</p>';
             try {
                 const response = await fetch(`/api/bpx?period=${period}&domain=${domain}`);
                 if (!response.ok) throw new Error(`Failed to fetch data (${response.status})`);
@@ -225,7 +231,7 @@
         }
         
         async function showLogDetails(url, admin_key = null) {
-            analyticsContent.innerHTML = `<p class="text-gray-500">Fetching logs...</p>`;
+            analyticsContent.innerHTML = `<p>Fetching logs...</p>`;
             try {
                 const apiUrl = `/api/bpx?view=details&url=${url}${admin_key ? `&admin_key=${admin_key}`:''}`;
                 const response = await fetch(apiUrl);
