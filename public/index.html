@@ -41,28 +41,68 @@
             margin-bottom: 15px;
             font-weight: 600;
         }
+        details > summary {
+            list-style: none;
+        }
+        details > summary::-webkit-details-marker {
+            display: none;
+        }
     </style>
 </head>
 <body class="bg-white text-gray-800 antialiased">
 
     <div id="main-container" class="max-w-4xl mx-auto p-5 md:p-8">
         
+        <!-- Collapsible Settings Section -->
+        <details class="mb-8 bg-gray-50 p-4 rounded-lg border border-gray-200">
+            <summary class="font-semibold cursor-pointer text-lg">Settings & Tracking Script</summary>
+            <div class="mt-6 grid grid-cols-1 md:grid-cols-2 gap-8 pt-4 border-t border-gray-200">
+                <!-- Domain Management -->
+                <div>
+                    <h3 class="font-semibold mb-3 text-gray-700">Manage Tracked Domains</h3>
+                    <form id="add-domain-form" class="flex items-center space-x-2 mb-4">
+                        <input type="text" id="domain-input" placeholder="example.com" class="border border-gray-300 rounded px-2 py-1 flex-grow w-full" required>
+                        <button type="submit" class="bg-black text-white px-4 py-1 rounded hover:bg-gray-800 transition-colors">ADD</button>
+                    </form>
+                    <div id="form-message" class="text-sm min-h-[1.25rem] font-mono"></div>
+                    <h4 class="text-gray-600 mt-4 mb-2 text-sm font-semibold">Tracked Domains:</h4>
+                    <ul id="tracked-domains-list" class="text-gray-800 space-y-1 text-sm"><li>Loading...</li></ul>
+                </div>
+                <!-- Tracking Script -->
+                <div>
+                    <h3 class="font-semibold mb-3 text-gray-700">Get Tracking Script</h3>
+                    <p class="text-gray-500 text-sm mb-4">Add this script inside the &lt;body&gt; tag of any site you want to track.</p>
+                    <div class="relative">
+                        <pre><code id="tracking-script-block" class="bg-gray-800 text-white text-xs p-4 rounded block whitespace-pre-wrap"></code></pre>
+                        <button id="copy-script-button" class="absolute top-2 right-2 bg-gray-600 text-white text-xs font-semibold px-2 py-1 rounded hover:bg-gray-500 transition">COPY</button>
+                    </div>
+                </div>
+            </div>
+        </details>
+
         <!-- Header -->
         <header id="dashboard-header" class="mb-8">
             <h1 class="text-2xl font-bold mb-4">Analytics Dashboard</h1>
-            <div id="time-range-selector">
-                <span class="mr-3 text-gray-600">Period:</span>
-                <button data-period="1d" class="time-range-btn">Last 24h</button>
-                <button data-period="7d" class="time-range-btn active">Last 7 days</button>
-                <button data-period="30d" class="time-range-btn">Last 30 days</button>
-                <button data-period="90d" class="time-range-btn">Last 90 days</button>
+            <div class="flex flex-wrap items-center gap-y-4 gap-x-8">
+                <div id="time-range-selector">
+                    <span class="mr-3 text-gray-600">Period:</span>
+                    <button data-period="1d" class="time-range-btn">Last 24h</button>
+                    <button data-period="7d" class="time-range-btn active">Last 7 days</button>
+                    <button data-period="30d" class="time-range-btn">Last 30 days</button>
+                    <button data-period="90d" class="time-range-btn">Last 90 days</button>
+                </div>
+                 <div id="domain-filter-container">
+                    <span class="mr-3 text-gray-600">Domain:</span>
+                    <select id="domain-filter" class="border border-gray-300 rounded px-2 py-1.5 text-sm">
+                        <option value="all">All Domains</option>
+                    </select>
+                </div>
             </div>
         </header>
 
         <!-- Main Content Area -->
         <main id="analytics-content">
-            <!-- This will be populated by JavaScript -->
-             <p class="text-gray-500">Fetching analytics data...</p>
+            <p class="text-gray-500">Fetching analytics data...</p>
         </main>
 
         <!-- Footer -->
@@ -70,37 +110,38 @@
             Last updated: <span id="last-updated"></span>
         </footer>
     </div>
-    
-    <!-- This container is hidden but used for other functionalities -->
-    <div class="hidden">
-        <div id="domain-management">
-            <form id="add-domain-form"></form>
-            <ul id="tracked-domains-list"></ul>
-        </div>
-        <pre><code id="tracking-script-block"></code></pre>
-        <button id="copy-script-button"></button>
-    </div>
-
 
     <script>
         // --- DOM Element Refs ---
         const analyticsContent = document.getElementById('analytics-content');
         const lastUpdatedSpan = document.getElementById('last-updated');
+        const addDomainForm = document.getElementById('add-domain-form');
+        const domainInput = document.getElementById('domain-input');
+        const formMessage = document.getElementById('form-message');
+        const trackedDomainsList = document.getElementById('tracked-domains-list');
+        const trackingScriptBlock = document.getElementById('tracking-script-block');
+        const copyScriptButton = document.getElementById('copy-script-button');
+        const domainFilter = document.getElementById('domain-filter');
+        
         let summaryDataCache = null;
+        let fullTrackingScript = '';
 
         // --- RENDER FUNCTIONS ---
         function renderDashboardView(data) {
-            const allPages = Object.values(data).flat();
-            const totalViews = allPages.reduce((sum, page) => sum + page.views, 0);
-            const totalUniques = allPages.reduce((sum, page) => sum + page.unique_views, 0);
-            const topPages = allPages.sort((a, b) => b.views - a.views).slice(0, 10);
+            const selectedDomain = domainFilter.value;
+            const pagesToRender = selectedDomain === 'all' 
+                ? Object.values(data).flat() 
+                : (data[selectedDomain] || []);
+
+            const totalViews = pagesToRender.reduce((sum, page) => sum + page.views, 0);
+            const totalUniques = pagesToRender.reduce((sum, page) => sum + (page.unique_views || 0), 0);
+            const topPages = pagesToRender.sort((a, b) => b.views - a.views).slice(0, 10);
             
-            // Note: Bounce Rate & Avg Session are placeholders as the backend doesn't provide them.
             const overviewMetrics = [
                 { label: 'Page Views', value: totalViews.toLocaleString() },
                 { label: 'Unique Visitors', value: totalUniques.toLocaleString() },
-                { label: 'Bounce Rate', value: '42.3%' },
-                { label: 'Avg Session', value: '3.2m' },
+                { label: 'Bounce Rate', value: 'N/A' },
+                { label: 'Avg Session', value: 'N/A' },
             ];
 
             let overviewHtml = overviewMetrics.map(metric => `
@@ -110,7 +151,7 @@
                 </div>
             `).join('');
 
-            let topPagesHtml = topPages.map(page => {
+            let topPagesHtml = topPages.length > 0 ? topPages.map(page => {
                 const percentage = totalViews > 0 ? ((page.views / totalViews) * 100).toFixed(1) : 0;
                 const path = new URL(page.url).pathname;
                 return `
@@ -122,9 +163,8 @@
                         </span>
                     </div>
                 `;
-            }).join('');
+            }).join('') : '<p class="text-gray-500 p-4 text-center">No page view data for this domain yet.</p>';
             
-            // Main dashboard structure
             analyticsContent.innerHTML = `
                 <div class="mb-10">
                     <h2 class="section-header">Overview</h2>
@@ -178,9 +218,9 @@
             `;
         }
         
-        // --- DATA FETCHING ---
+        // --- DATA FETCHING & STATE MANAGEMENT ---
         async function showSummaryView() {
-             if (summaryDataCache) {
+            if (summaryDataCache) {
                 renderDashboardView(summaryDataCache);
                 return;
             }
@@ -207,17 +247,97 @@
                 analyticsContent.innerHTML = `<p class="text-red-500">Error: ${error.message}</p>`;
             }
         }
-        
-        // --- EVENT LISTENERS & INITIALIZATION ---
-        const timeRangeSelector = document.getElementById('time-range-selector');
-        timeRangeSelector.addEventListener('click', (e) => {
-            if (e.target.tagName === 'BUTTON') {
-                timeRangeSelector.querySelector('.active').classList.remove('active');
-                e.target.classList.add('active');
-                // In a real app, this would trigger a refetch of data with the new time range.
-                // For now, it's a UI-only change.
-                showSummaryView(); 
+
+        // --- DOMAIN & SCRIPT MANAGEMENT ---
+        async function fetchTrackedDomains() {
+            try {
+                // Assuming /api/domains is an endpoint that returns { domains: [...] }
+                const response = await fetch('/api/domains'); 
+                if (!response.ok) throw new Error('Could not fetch domains');
+                const { domains } = await response.json();
+                
+                trackedDomainsList.innerHTML = '';
+                domainFilter.innerHTML = '<option value="all">All Domains</option>';
+                
+                if (domains.length > 0) {
+                    domains.sort().forEach(domain => {
+                        const li = document.createElement('li');
+                        li.textContent = domain;
+                        trackedDomainsList.appendChild(li);
+
+                        const option = document.createElement('option');
+                        option.value = domain;
+                        option.textContent = domain;
+                        domainFilter.appendChild(option);
+                    });
+                } else {
+                    trackedDomainsList.innerHTML = '<li class="text-gray-500">No domains tracked.</li>';
+                }
+            } catch (error) {
+                trackedDomainsList.innerHTML = `<li class="text-red-500">${error.message}</li>`;
             }
+        }
+        
+        function generateTrackingScript() {
+            const endpoint = `${window.location.origin}/api/bpx`;
+            const scriptContent = `<script>
+(async function() {
+  try {
+    await fetch('${endpoint}', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ data: { u: window.location.href, r: document.referrer } }),
+      mode: 'cors'
+    });
+  } catch(e) { /* Analytics script failed silently */ }
+})();
+<\/script>`;
+            fullTrackingScript = scriptContent;
+            trackingScriptBlock.textContent = scriptContent;
+        }
+
+        // --- EVENT LISTENERS & INITIALIZATION ---
+        domainFilter.addEventListener('change', () => {
+             if (summaryDataCache) {
+                renderDashboardView(summaryDataCache);
+            }
+        });
+
+        addDomainForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const domain = domainInput.value.trim();
+            if (!domain) return;
+            formMessage.textContent = 'Adding...';
+            formMessage.className = 'text-sm text-gray-500';
+            try {
+                // Assuming /api/domains handles POST to add a domain
+                const response = await fetch('/api/domains', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ domain }),
+                });
+                if (response.ok) {
+                    formMessage.textContent = `SUCCESS: Domain '${domain}' added.`;
+                    formMessage.className = 'text-sm text-green-600';
+                    domainInput.value = '';
+                    await fetchTrackedDomains(); // Refresh lists
+                } else {
+                    const { message } = await response.json();
+                    throw new Error(message || 'Failed to add domain.');
+                }
+            } catch (error) {
+                formMessage.textContent = `ERROR: ${error.message}`;
+                formMessage.className = 'text-sm text-red-600';
+            }
+        });
+
+        copyScriptButton.addEventListener('click', () => {
+            navigator.clipboard.writeText(fullTrackingScript).then(() => {
+                copyScriptButton.textContent = 'COPIED!';
+                setTimeout(() => { copyScriptButton.textContent = 'COPY'; }, 2000);
+            }, () => {
+                copyScriptButton.textContent = 'ERROR';
+            });
         });
 
         function updateFooterTimestamp() {
@@ -226,11 +346,12 @@
 
         function initializeDashboard() {
             showSummaryView();
+            fetchTrackedDomains();
+            generateTrackingScript();
             updateFooterTimestamp();
-            setInterval(updateFooterTimestamp, 1000 * 60); // Update every minute
+            setInterval(updateFooterTimestamp, 1000 * 60);
         }
 
-        // Make functions globally accessible for inline onclick handlers
         window.showLogDetails = showLogDetails;
         window.showSummaryView = showSummaryView;
 
