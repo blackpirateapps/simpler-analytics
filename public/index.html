@@ -7,17 +7,45 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Fira Code', monospace; line-height: 1.6; }
-        .time-range-btn { background: transparent; color: #333; border: 1px solid #333; padding: 4px 12px; margin: 0 5px 0 0; cursor: pointer; font-size: 14px; border-radius: 4px; transition: all 0.2s ease-in-out; }
-        .time-range-btn.active { background: #000; color: #fff; }
-        .data-list-row { border-bottom: 1px solid #ddd; padding: 10px 5px; display: flex; justify-content: space-between; align-items: center; }
-        .data-list-row:hover { background-color: #f9f9f9; cursor: pointer; }
-        .section-header { font-size: 18px; margin-bottom: 15px; font-weight: 600; }
+        body { 
+            font-family: 'Fira Code', monospace; 
+            line-height: 1.6;
+        }
+        .time-range-btn {
+            background: transparent;
+            color: #333;
+            border: 1px solid #333;
+            padding: 4px 12px;
+            margin: 0 5px 0 0;
+            cursor: pointer;
+            font-size: 14px;
+            border-radius: 4px;
+            transition: all 0.2s ease-in-out;
+        }
+        .time-range-btn.active {
+            background: #000;
+            color: #fff;
+        }
+        .data-list-row {
+            border-bottom: 1px solid #ddd;
+            padding: 10px 5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .data-list-row:hover {
+            background-color: #f9f9f9;
+            cursor: pointer;
+        }
+        .section-header {
+            font-size: 18px;
+            margin-bottom: 15px;
+            font-weight: 600;
+        }
         details > summary { list-style: none; }
         details > summary::-webkit-details-marker { display: none; }
         details[open] > summary .arrow { transform: rotate(90deg); }
         .arrow { transition: transform 0.2s ease-in-out; }
-        #password-modal { display: none; }
     </style>
 </head>
 <body class="bg-white text-gray-800 antialiased">
@@ -28,7 +56,7 @@
         <details class="mb-8 bg-gray-50 rounded-lg border border-gray-200">
             <summary class="font-semibold cursor-pointer text-lg p-4 flex justify-between items-center">
                 <span>Settings & Tracking Script</span>
-                <svg class="w-5 h-5 arrow" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                <svg class="w-5 h-5 arrow" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
             </summary>
             <div class="p-4 mt-2 grid grid-cols-1 md:grid-cols-2 gap-8 pt-4 border-t border-gray-200">
                 <div>
@@ -43,7 +71,7 @@
                 </div>
                 <div>
                     <h3 class="font-semibold mb-3 text-gray-700">Get Tracking Script</h3>
-                    <p class="text-gray-500 text-sm mb-4">Add this script to any site you want to track.</p>
+                    <p class="text-gray-500 text-sm mb-4">Add this script inside the &lt;body&gt; tag of any site you want to track.</p>
                     <div class="relative">
                         <pre><code id="tracking-script-block" class="bg-gray-800 text-white text-xs p-4 rounded block whitespace-pre-wrap"></code></pre>
                         <button id="copy-script-button" class="absolute top-2 right-2 bg-gray-600 text-white text-xs font-semibold px-2 py-1 rounded hover:bg-gray-500 transition">COPY</button>
@@ -56,10 +84,10 @@
             <div class="flex flex-wrap items-center gap-y-4 gap-x-8">
                 <div id="time-range-selector">
                     <span class="mr-3 text-gray-600">Period:</span>
+                    <button data-period="all_time" class="time-range-btn active">All Time</button>
                     <button data-period="1d" class="time-range-btn">Last 24h</button>
-                    <button data-period="7d" class="time-range-btn active">Last 7 days</button>
+                    <button data-period="7d" class="time-range-btn">Last 7 days</button>
                     <button data-period="30d" class="time-range-btn">Last 30 days</button>
-                    <button data-period="90d" class="time-range-btn">Last 90 days</button>
                 </div>
                  <div id="domain-filter-container">
                     <span class="mr-3 text-gray-600">Domain:</span>
@@ -73,35 +101,27 @@
         <main id="analytics-content">
             <p class="text-gray-500">Fetching analytics data...</p>
         </main>
+        
+        <div id="password-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center">
+            <div class="bg-white p-6 rounded-lg shadow-xl w-full max-w-sm">
+                <h3 class="text-lg font-semibold mb-4">Admin Access Required</h3>
+                <p id="password-prompt-message" class="text-sm text-gray-600 mb-4"></p>
+                <input type="password" id="admin-password-input" class="border border-gray-300 rounded w-full px-3 py-2 mb-4" placeholder="Enter Admin Password">
+                <div class="flex justify-end gap-3">
+                    <button id="password-cancel-btn" class="px-4 py-2 rounded bg-gray-200 hover:bg-gray-300">Cancel</button>
+                    <button id="password-submit-btn" class="px-4 py-2 rounded bg-black text-white hover:bg-gray-800">Submit</button>
+                </div>
+            </div>
+        </div>
 
         <footer class="text-center text-xs text-gray-500 mt-12 pt-5 border-t border-gray-200">
             Last updated: <span id="last-updated"></span>
         </footer>
     </div>
-    
-    <div id="password-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-        <div class="bg-white p-6 rounded-lg shadow-xl w-full max-w-sm">
-            <h3 id="password-modal-title" class="text-lg font-semibold mb-4">Admin Access</h3>
-            <p id="password-modal-description" class="text-sm text-gray-600 mb-4">Enter the password.</p>
-            <form id="password-form">
-                <input type="password" id="password-input" class="border border-gray-300 rounded w-full px-3 py-2 mb-4" placeholder="Password" required>
-                <div class="flex justify-end space-x-3">
-                    <button type="button" id="cancel-password" class="bg-gray-200 px-4 py-2 rounded text-sm font-semibold">Cancel</button>
-                    <button type="submit" class="bg-black text-white px-4 py-2 rounded text-sm font-semibold">Submit</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
 
     <script>
+        // --- DOM Element Refs & State ---
         const analyticsContent = document.getElementById('analytics-content');
-        const passwordModal = document.getElementById('password-modal');
-        const passwordModalTitle = document.getElementById('password-modal-title');
-        const passwordModalDescription = document.getElementById('password-modal-description');
-        const passwordForm = document.getElementById('password-form');
-        const passwordInput = document.getElementById('password-input');
-        const cancelPasswordBtn = document.getElementById('cancel-password');
         const lastUpdatedSpan = document.getElementById('last-updated');
         const addDomainForm = document.getElementById('add-domain-form');
         const domainInput = document.getElementById('domain-input');
@@ -111,180 +131,207 @@
         const copyScriptButton = document.getElementById('copy-script-button');
         const domainFilter = document.getElementById('domain-filter');
         const timeRangeSelector = document.getElementById('time-range-selector');
+        const passwordModal = document.getElementById('password-modal');
+        const passwordInput = document.getElementById('admin-password-input');
+        const passwordSubmitBtn = document.getElementById('password-submit-btn');
+        const passwordCancelBtn = document.getElementById('password-cancel-btn');
+        const passwordPromptMessage = document.getElementById('password-prompt-message');
         
-        let apiDataCache = null;
         let fullTrackingScript = '';
-        let currentUrlForAdmin = null;
-        let currentDomainToDelete = null;
+        let passwordResolve = null;
 
-        function formatSeconds(seconds) {
-            if (isNaN(seconds) || seconds < 1) return `0s`;
-            if (seconds < 60) return `${Math.round(seconds)}s`;
-            const minutes = Math.floor(seconds / 60);
-            const remainingSeconds = Math.round(seconds % 60);
-            return `${minutes}m ${remainingSeconds}s`;
-        }
+        // --- UTILS ---
+        const formatSeconds = (seconds) => {
+            const s = Math.round(seconds || 0);
+            if (s < 60) return `${s}s`;
+            return `${Math.floor(s / 60)}m ${s % 60}s`;
+        };
 
+        // --- PASSWORD MODAL ---
+        const getAdminPassword = (message) => {
+            passwordPromptMessage.textContent = message;
+            passwordModal.classList.remove('hidden');
+            passwordModal.classList.add('flex');
+            passwordInput.focus();
+            return new Promise(resolve => { passwordResolve = resolve; });
+        };
+        passwordSubmitBtn.addEventListener('click', () => {
+            if (passwordResolve) passwordResolve(passwordInput.value);
+            passwordModal.classList.add('hidden');
+            passwordModal.classList.remove('flex');
+            passwordInput.value = '';
+        });
+        passwordCancelBtn.addEventListener('click', () => {
+            if (passwordResolve) passwordResolve(null);
+            passwordModal.classList.add('hidden');
+            passwordModal.classList.remove('flex');
+            passwordInput.value = '';
+        });
+        
+        // --- RENDER FUNCTIONS ---
         function renderDashboardView(data) {
-            const overview = data.overview || {};
-            const topPages = data.topPages || [];
-            
+            const { overview, topPages } = data;
             const overviewMetrics = [
                 { label: 'Page Views', value: (overview.pageViews || 0).toLocaleString() },
                 { label: 'Unique Visitors', value: (overview.uniqueVisitors || 0).toLocaleString() },
-                { label: 'Bounce Rate', value: `${overview.bounceRate || 0}%` },
-                { label: 'Avg. Active Time', value: formatSeconds(overview.avgSiteActiveTimeSeconds || 0) },
+                { label: 'Bounce Rate', value: `${overview.bounceRate}%` },
+                { label: 'Avg. Active Time', value: formatSeconds(overview.avgSiteActiveTimeSeconds) },
             ];
 
-            let overviewHtml = overviewMetrics.map(metric => `<div><div class="text-2xl font-bold">${metric.value}</div><div class="text-sm text-gray-500">${metric.label}</div></div>`).join('');
+            const overviewHtml = overviewMetrics.map(m => `<div><div class="text-2xl font-bold">${m.value}</div><div class="text-sm text-gray-500">${m.label}</div></div>`).join('');
             
-            let topPagesHtml = topPages.length > 0 ? topPages.map(page => {
+            const topPagesHtml = topPages.length > 0 ? topPages.map(page => {
+                const totalViews = overview.pageViews || 0;
+                const percentage = totalViews > 0 ? ((page.views / totalViews) * 100).toFixed(1) : 0;
                 const path = new URL(page.url).pathname;
-                const avgActiveTime = (page.views > 0) ? (page.total_active_seconds || 0) / page.views : 0;
                 return `<div class="data-list-row" onclick="showLogDetails('${encodeURIComponent(page.url)}')">
-                            <span>${path}</span>
-                            <span class="flex gap-4 items-center text-sm">
-                                <span class="w-20 text-right font-semibold">${formatSeconds(avgActiveTime)}</span>
-                                <span class="w-16 text-right text-gray-600">${(page.unique_views || 0).toLocaleString()}</span>
-                                <span class="w-16 text-right text-gray-600">${(page.views || 0).toLocaleString()}</span>
-                            </span>
-                        </div>`;
-            }).join('') : '<p class="text-gray-500 p-4 text-center">No page view data for this domain/period yet.</p>';
-
-            analyticsContent.innerHTML = `
-                <div class="mb-10">
-                    <h2 class="section-header">Overview</h2>
-                    <div class="grid grid-cols-2 md:grid-cols-4 gap-5">${overviewHtml}</div>
-                </div>
-                <div>
-                    <div class="flex justify-between items-center pr-2">
-                        <h2 class="section-header">Top Pages</h2>
-                        <div class="text-xs text-gray-500 flex gap-4">
-                           <span class="w-20 text-right">AVG. TIME</span>
-                           <span class="w-16 text-right">UNIQUES</span>
-                           <span class="w-16 text-right">VIEWS</span>
-                        </div>
-                    </div>
-                    <div class="border-t border-gray-200">${topPagesHtml}</div>
+                    <span>${path}</span>
+                    <span class="flex gap-4 items-center text-sm">
+                        <span>${(page.unique_views || 0).toLocaleString()} <span class="text-gray-400">uniques</span></span>
+                        <span>${(page.views || 0).toLocaleString()} <span class="text-gray-400">views</span></span>
+                        <span class="text-gray-500 w-16 text-right">${percentage}%</span>
+                    </span>
                 </div>`;
+            }).join('') : '<p class="text-gray-500 p-4 text-center">No page view data found for this period.</p>';
+
+            analyticsContent.innerHTML = `<div class="mb-10"><h2 class="section-header">Overview</h2><div class="grid grid-cols-2 md:grid-cols-4 gap-5">${overviewHtml}</div></div><div><h2 class="section-header">Top Pages</h2><div class="border-t border-gray-200">${topPagesHtml}</div></div>`;
         }
 
         function renderLogDetailsView(url, logs, isAdmin = false) {
-            const decodedUrl = decodeURIComponent(url);
-            const path = new URL(decodedUrl).pathname;
+            const path = new URL(decodeURIComponent(url)).pathname;
             const ipHeader = isAdmin ? '<th class="p-2 font-semibold text-gray-500">IP ADDRESS</th>' : '';
-            const ipCells = (log) => isAdmin ? `<td class="p-2">${log.ip_address}</td>` : '';
-            let logsHtml = logs.map(log => {
-                const timestamp = new Date(log.timestamp).toLocaleString('en-GB', { timeZone: 'UTC' });
-                const referrer = log.referrer ? new URL(log.referrer).hostname : 'direct';
-                return `<tr class="border-b border-gray-200 text-xs"><td class="p-2 text-gray-500">${timestamp}</td><td class="p-2">${log.country}</td>${ipCells(log)}<td class="p-2">${log.browser}</td><td class="p-2">${log.device_type}</td><td class="p-2" title="${log.referrer || ''}">${referrer}</td></tr>`;
+            const logsHtml = logs.map(log => {
+                const ipCell = isAdmin ? `<td class="p-2">${log.ip_address}</td>` : '';
+                return `<tr class="border-b border-gray-200 text-xs"><td class="p-2 text-gray-500">${new Date(log.timestamp).toLocaleString('en-GB',{timeZone:'UTC'})}</td><td class="p-2">${log.country}</td>${ipCell}<td class="p-2">${log.browser}</td><td class="p-2">${log.device_type}</td><td class="p-2" title="${log.referrer||''}">${log.referrer?new URL(log.referrer).hostname:'direct'}</td></tr>`;
             }).join('');
-            const adminButton = `<button onclick="requestAdminView('${url}')" class="text-xs font-semibold text-blue-600 hover:underline">Show IP</button>`;
-            analyticsContent.innerHTML = `<div class="mb-10"><div class="flex justify-between items-center mb-4"><div><h2 class="section-header inline">Recent Activity: ${path}</h2><span class="ml-4">${adminButton}</span></div><button onclick="showSummaryView()" class="text-sm font-semibold hover:text-blue-600">&lt; BACK TO SUMMARY</button></div><div class="overflow-x-auto border-t border-gray-200"><table class="w-full text-left"><thead><tr class="border-b border-gray-300 text-xs"><th class="p-2 font-semibold text-gray-500">TIMESTAMP (UTC)</th><th class="p-2 font-semibold text-gray-500">COUNTRY</th>${ipHeader}<th class="p-2 font-semibold text-gray-500">BROWSER</th><th class="p-2 font-semibold text-gray-500">DEVICE</th><th class="p-2 font-semibold text-gray-500">REFERRER</th></tr></thead><tbody>${logsHtml}</tbody></table></div></div>`;
+            const showIpBtn = !isAdmin ? `<button onclick="showIpAddress('${url}')" class="text-xs font-semibold hover:text-blue-600">Show IP</button>` : '';
+
+            analyticsContent.innerHTML = `<div class="mb-10"><div class="flex justify-between items-center mb-4"><h2 class="section-header">Recent Activity: ${path}</h2><div class="flex gap-4 items-center">${showIpBtn}<button onclick="fetchDataAndRender()" class="text-sm font-semibold hover:text-blue-600">&lt; BACK</button></div></div><div class="overflow-x-auto border-t border-gray-200"><table class="w-full text-left"><thead><tr class="border-b border-gray-300 text-xs"><th class="p-2 font-semibold text-gray-500">TIMESTAMP (UTC)</th><th class="p-2 font-semibold text-gray-500">COUNTRY</th>${ipHeader}<th class="p-2 font-semibold text-gray-500">BROWSER</th><th class="p-2 font-semibold text-gray-500">DEVICE</th><th class="p-2 font-semibold text-gray-500">REFERRER</th></tr></thead><tbody>${logsHtml}</tbody></table></div></div>`;
         }
         
+        // --- DATA FETCHING ---
         async function fetchDataAndRender() {
-            analyticsContent.innerHTML = '<p class="text-gray-500">Fetching analytics data...</p>';
             const period = timeRangeSelector.querySelector('.active').dataset.period;
             const domain = domainFilter.value;
+            analyticsContent.innerHTML = '<p class="text-gray-500">Fetching analytics data...</p>';
             try {
                 const response = await fetch(`/api/bpx?period=${period}&domain=${domain}`);
                 if (!response.ok) throw new Error(`Failed to fetch data (${response.status})`);
                 const data = await response.json();
-                apiDataCache = data;
-                renderDashboardView(apiDataCache);
-            } catch (error) { analyticsContent.innerHTML = `<p class="text-red-500">Error: ${error.message}</p>`; }
+                renderDashboardView(data);
+            } catch (error) {
+                analyticsContent.innerHTML = `<p class="text-red-500">Error: ${error.message}</p>`;
+            }
         }
-
-        function showSummaryView() { if (apiDataCache) renderDashboardView(apiDataCache); }
-
-        async function showLogDetails(url, adminKey = null) {
+        
+        async function showLogDetails(url, admin_key = null) {
             analyticsContent.innerHTML = `<p class="text-gray-500">Fetching logs...</p>`;
             try {
-                const apiUrl = adminKey ? `/api/bpx?view=details&url=${url}&admin_key=${adminKey}` : `/api/bpx?view=details&url=${url}`;
+                const apiUrl = `/api/bpx?view=details&url=${url}${admin_key ? `&admin_key=${admin_key}`:''}`;
                 const response = await fetch(apiUrl);
                 if (!response.ok) throw new Error(`Failed to fetch logs (${response.status})`);
                 const logs = await response.json();
-                renderLogDetailsView(url, logs, !!adminKey);
+                renderLogDetailsView(url, logs, !!admin_key);
             } catch (error) {
                 analyticsContent.innerHTML = `<p class="text-red-500">Error: ${error.message}</p>`;
-                alert('Failed to fetch admin data. Is the password correct?');
             }
         }
         
-        function requestAdminView(url) {
-            currentUrlForAdmin = url;
-            passwordModalTitle.textContent = 'Admin Access';
-            passwordModalDescription.textContent = 'Enter the password to view IP addresses.';
-            passwordModal.style.display = 'flex';
-            passwordInput.focus();
-        }
-        
-        function requestDeleteConfirmation(domain) {
-            currentDomainToDelete = domain;
-            passwordModalTitle.textContent = 'Confirm Deletion';
-            passwordModalDescription.textContent = `Enter the admin password to delete ${domain}. This cannot be undone.`;
-            passwordModal.style.display = 'flex';
-            passwordInput.focus();
-        }
-
-        passwordForm.addEventListener('submit', (e) => {
-            e.preventDefault();
-            const password = passwordInput.value;
+        async function showIpAddress(url) {
+            const password = await getAdminPassword('To view IP addresses, please enter the admin password.');
             if (password) {
-                if (currentUrlForAdmin) { showLogDetails(currentUrlForAdmin, password); }
-                if (currentDomainToDelete) { deleteDomain(currentDomainToDelete, password); }
+                showLogDetails(url, password);
             }
-            passwordModal.style.display = 'none';
-            passwordInput.value = '';
-            currentUrlForAdmin = null;
-            currentDomainToDelete = null;
-        });
+        }
 
-        cancelPasswordBtn.addEventListener('click', () => {
-            passwordModal.style.display = 'none';
-            passwordInput.value = '';
-            currentUrlForAdmin = null;
-            currentDomainToDelete = null;
-        });
-
-        async function fetchTrackedDomains() { try { const response = await fetch('/api/domains'); if (!response.ok) throw new Error('Could not fetch domains'); const { domains } = await response.json(); trackedDomainsList.innerHTML = ''; domainFilter.innerHTML = '<option value="all">All Domains</option>'; if (domains.length > 0) { domains.sort().forEach(domain => { const li = document.createElement('li'); li.className = 'flex justify-between items-center'; li.innerHTML = `<span>${domain}</span><button onclick="requestDeleteConfirmation('${domain}')" class="text-red-500 hover:text-red-700 text-lg">&times;</button>`; trackedDomainsList.appendChild(li); const option = document.createElement('option'); option.value = domain; option.textContent = domain; domainFilter.appendChild(option); }); } else { trackedDomainsList.innerHTML = '<li class="text-gray-500">No domains tracked.</li>'; } } catch (error) { trackedDomainsList.innerHTML = `<li class="text-red-500">${error.message}</li>`; } }
-        
-        async function deleteDomain(domain, adminKey) {
-            try { 
-                const response = await fetch('/api/domains', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ domain, admin_key: adminKey }), }); 
-                if (!response.ok) { const { message } = await response.json(); throw new Error(message || 'Failed to delete domain.'); } 
-                await fetchTrackedDomains(); 
-                await fetchDataAndRender(); // Refresh main view
-            } catch (error) { alert(`Error: ${error.message}`); }
+        // --- DOMAIN MANAGEMENT ---
+        async function fetchTrackedDomains() {
+            try {
+                const response = await fetch('/api/domains'); 
+                const { domains } = await response.json();
+                trackedDomainsList.innerHTML = '';
+                domainFilter.innerHTML = '<option value="all">All Domains</option>';
+                if (domains.length > 0) {
+                    domains.sort().forEach(d => {
+                        trackedDomainsList.innerHTML += `<li class="flex justify-between items-center"><span>${d}</span><button data-domain="${d}" class="delete-domain-btn text-red-500 hover:text-red-700 text-lg">&times;</button></li>`;
+                        domainFilter.innerHTML += `<option value="${d}">${d}</option>`;
+                    });
+                } else {
+                    trackedDomainsList.innerHTML = '<li class="text-gray-500">No domains tracked.</li>';
+                }
+            } catch (error) {
+                trackedDomainsList.innerHTML = `<li class="text-red-500">${error.message}</li>`;
+            }
         }
         
+        async function deleteDomain(domain) {
+            const password = await getAdminPassword(`To delete '${domain}', please enter the admin password.`);
+            if (!password) return;
+            try {
+                const response = await fetch('/api/domains', {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ domain, admin_key: password }),
+                });
+                const result = await response.json();
+                if (!response.ok) throw new Error(result.message || 'Failed to delete domain.');
+                await fetchTrackedDomains();
+            } catch (error) {
+                alert(`Error: ${error.message}`);
+            }
+        }
+
         function generateTrackingScript() {
-            const scriptSrc = `${window.location.origin}/api/pizzle.js`;
-            fullTrackingScript = `<script async defer src="${scriptSrc}"><\/script>`;
+            const endpoint = `${window.location.origin}/api/pizzle.js`;
+            fullTrackingScript = `<script src="${endpoint}"><\/script>`;
             trackingScriptBlock.textContent = fullTrackingScript;
         }
 
+        // --- EVENT LISTENERS & INIT ---
         domainFilter.addEventListener('change', fetchDataAndRender);
-        timeRangeSelector.addEventListener('click', (e) => { if (e.target.tagName === 'BUTTON') { timeRangeSelector.querySelector('.active').classList.remove('active'); e.target.classList.add('active'); fetchDataAndRender(); } });
-        addDomainForm.addEventListener('submit', async (e) => { e.preventDefault(); const domain = domainInput.value.trim(); if (!domain) return; formMessage.textContent = 'Adding...'; try { const response = await fetch('/api/domains', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ domain }), }); const result = await response.json(); if (response.ok) { formMessage.textContent = `SUCCESS: Domain '${domain}' added.`; formMessage.className = 'text-sm text-green-600'; domainInput.value = ''; await fetchTrackedDomains(); } else { throw new Error(result.message || 'Failed to add domain.'); } } catch (error) { formMessage.textContent = `ERROR: ${error.message}`; formMessage.className = 'text-sm text-red-600'; } });
-        copyScriptButton.addEventListener('click', () => { navigator.clipboard.writeText(fullTrackingScript).then(() => { copyScriptButton.textContent = 'COPIED!'; setTimeout(() => { copyScriptButton.textContent = 'COPY'; }, 2000); }, () => { copyScriptButton.textContent = 'ERROR'; }); });
+        timeRangeSelector.addEventListener('click', (e) => {
+            if (e.target.tagName === 'BUTTON') {
+                timeRangeSelector.querySelector('.active').classList.remove('active');
+                e.target.classList.add('active');
+                fetchDataAndRender();
+            }
+        });
+        addDomainForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const domain = domainInput.value.trim();
+            if (!domain) return;
+            formMessage.textContent = 'Adding...';
+            try {
+                const response = await fetch('/api/domains', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({domain}) });
+                const result = await response.json();
+                if (!response.ok) throw new Error(result.message);
+                formMessage.textContent = `SUCCESS: Domain '${domain}' added.`;
+                formMessage.className = 'text-sm text-green-600';
+                domainInput.value = '';
+                await fetchTrackedDomains();
+            } catch (error) {
+                formMessage.textContent = `ERROR: ${error.message}`;
+                formMessage.className = 'text-sm text-red-600';
+            }
+        });
+        trackedDomainsList.addEventListener('click', (e) => {
+            if (e.target.classList.contains('delete-domain-btn')) deleteDomain(e.target.dataset.domain);
+        });
+        copyScriptButton.addEventListener('click', () => navigator.clipboard.writeText(fullTrackingScript).then(() => { copyScriptButton.textContent = 'COPIED!'; setTimeout(() => { copyScriptButton.textContent = 'COPY'; }, 2000); }, () => { copyScriptButton.textContent = 'ERROR'; }));
         
-        function updateFooterTimestamp() { lastUpdatedSpan.textContent = new Date().toLocaleString(); }
-        
+        const updateFooterTimestamp = () => lastUpdatedSpan.textContent = new Date().toLocaleString();
+
         function initializeDashboard() {
             fetchDataAndRender();
             fetchTrackedDomains();
             generateTrackingScript();
             updateFooterTimestamp();
-            setInterval(updateFooterTimestamp, 1000 * 60);
+            setInterval(updateFooterTimestamp, 60000);
         }
 
         window.showLogDetails = showLogDetails;
-        window.showSummaryView = showSummaryView;
-        window.requestAdminView = requestAdminView;
-        window.requestDeleteConfirmation = requestDeleteConfirmation;
-
+        window.showIpAddress = showIpAddress;
+        window.fetchDataAndRender = fetchDataAndRender;
         initializeDashboard();
     </script>
 </body>

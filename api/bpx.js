@@ -69,7 +69,7 @@ module.exports = async function handler(req, res) {
             }
 
         } else if (req.method === 'GET') {
-            const { view, url: urlParam, period = '7d', domain: domainParam, admin_key } = req.query;
+            const { view, url: urlParam, period = 'all_time', domain: domainParam, admin_key } = req.query;
 
             if (view === 'details') {
                 if (!urlParam) return res.status(400).json({ message: 'URL parameter is required.' });
@@ -78,58 +78,84 @@ module.exports = async function handler(req, res) {
                 const logData = await client.execute({ sql: `SELECT ${columns} FROM analytics_timeseries WHERE url = ? ORDER BY timestamp DESC LIMIT 50`, args: [urlParam] });
                 return res.status(200).json(logData.rows);
             }
-            
-            const intervalMap = { '1d': '-24 hours', '7d': '-7 days', '30d': '-30 days', '90d': '-90 days' };
-            const interval = intervalMap[period] || '-7 days';
+
+            let overview, topPages;
             const domainFilter = domainParam && domainParam !== 'all' ? `AND domain = ?` : '';
-            const queryArgs = [interval];
-            if (domainFilter) queryArgs.push(domainParam);
+            const domainFilterWhere = domainParam && domainParam !== 'all' ? `WHERE domain = ?` : '';
 
-            // **THE FIX**: This query now correctly uses the pre-aggregated page_views table for speed and accuracy.
-            const topPagesSql = `
-                SELECT url, views, unique_views, total_active_seconds
-                FROM page_views
-                WHERE url IN (
-                    SELECT url FROM analytics_timeseries WHERE timestamp >= datetime('now', ?) ${domainFilter} GROUP BY url
-                )
-                ORDER BY views DESC;
-            `;
-            const topPagesResult = await client.execute({ sql: topPagesSql, args: queryArgs });
-            const topPages = topPagesResult.rows;
+            if (period === 'all_time') {
+                // --- FAST, PRE-AGGREGATED "ALL TIME" VIEW ---
+                const queryArgs = domainParam && domainParam !== 'all' ? [domainParam] : [];
+                const allTimePagesSql = `SELECT url, views, unique_views, total_active_seconds FROM page_views ${domainFilterWhere} ORDER BY views DESC;`;
+                const allTimePagesResult = await client.execute({ sql: allTimePagesSql, args: queryArgs });
+                topPages = allTimePagesResult.rows;
 
-            // Calculate overview stats from the fast page_views results.
-            const pageViews = topPages.reduce((sum, page) => sum + page.views, 0);
-            const uniqueVisitors = topPages.reduce((sum, page) => sum + page.unique_views, 0);
-            const totalActiveSeconds = topPages.reduce((sum, page) => sum + (page.total_active_seconds || 0), 0);
-            const avgSiteActiveTimeSeconds = pageViews > 0 ? totalActiveSeconds / pageViews : 0;
+                const pageViews = topPages.reduce((sum, page) => sum + page.views, 0);
+                const uniqueVisitors = topPages.reduce((sum, page) => sum + page.unique_views, 0);
+                const totalActiveSeconds = topPages.reduce((sum, page) => sum + (page.total_active_seconds || 0), 0);
+                const avgSiteActiveTimeSeconds = pageViews > 0 ? totalActiveSeconds / pageViews : 0;
 
-            // Session/bounce rate calculations still need the timeseries table but are now more efficient.
-            const sessionSql = `
-                WITH sessions AS (
-                    SELECT visitor_hash, COUNT(url) as page_count
-                    FROM analytics_timeseries
-                    WHERE timestamp >= datetime('now', ?) ${domainFilter}
-                    GROUP BY visitor_hash
-                )
-                SELECT
-                    COUNT(*) AS total_sessions,
-                    SUM(CASE WHEN page_count = 1 THEN 1 ELSE 0 END) AS bounce_count
-                FROM sessions;
-            `;
-            const sessionResult = await client.execute({ sql: sessionSql, args: queryArgs });
-            const sessionStats = sessionResult.rows[0] || {};
-            const totalSessions = sessionStats.total_sessions || 0;
-            const bounceCount = sessionStats.bounce_count || 0;
-            const bounceRate = totalSessions > 0 ? Math.round((bounceCount / totalSessions) * 100) : 0;
+                overview = {
+                    pageViews,
+                    uniqueVisitors,
+                    bounceRate: 0, // Note: Bounce rate is too costly to calculate for all-time view.
+                    avgSiteActiveTimeSeconds,
+                };
+            } else {
+                // --- SLOW, REAL-TIME VIEW FOR SPECIFIC PERIODS ---
+                const intervalMap = { '1d': '-24 hours', '7d': '-7 days', '30d': '-30 days', '90d': '-90 days' };
+                const interval = intervalMap[period];
+                if (!interval) return res.status(400).json({ message: 'Invalid period specified.' });
 
-            return res.status(200).json({
-                overview: {
+                const queryArgs = [interval];
+                if (domainParam && domainParam !== 'all') queryArgs.push(domainParam);
+
+                const realTimePagesSql = `
+                    SELECT
+                        ats.url,
+                        COUNT(*) AS views,
+                        COUNT(DISTINCT ats.visitor_hash) AS unique_views,
+                        pv.total_active_seconds
+                    FROM analytics_timeseries AS ats
+                    LEFT JOIN page_views AS pv ON ats.url = pv.url
+                    WHERE ats.timestamp >= datetime('now', ?) ${domainFilter}
+                    GROUP BY ats.url
+                    ORDER BY views DESC;
+                `;
+                const realTimePagesResult = await client.execute({ sql: realTimePagesSql, args: queryArgs });
+                topPages = realTimePagesResult.rows;
+
+                const pageViews = topPages.reduce((sum, page) => sum + page.views, 0);
+                const uniqueVisitors = topPages.reduce((sum, page) => sum + page.unique_views, 0);
+                const totalActiveSeconds = topPages.reduce((sum, page) => sum + (page.total_active_seconds || 0), 0);
+                const avgSiteActiveTimeSeconds = pageViews > 0 ? totalActiveSeconds / pageViews : 0;
+
+                const sessionSql = `
+                    WITH sessions AS (
+                        SELECT visitor_hash, COUNT(url) as page_count
+                        FROM analytics_timeseries WHERE timestamp >= datetime('now', ?) ${domainFilter}
+                        GROUP BY visitor_hash
+                    )
+                    SELECT COUNT(*) AS total_sessions, SUM(CASE WHEN page_count = 1 THEN 1 ELSE 0 END) AS bounce_count
+                    FROM sessions;
+                `;
+                const sessionResult = await client.execute({ sql: sessionSql, args: queryArgs });
+                const sessionStats = sessionResult.rows[0] || {};
+                const totalSessions = sessionStats.total_sessions || 0;
+                const bounceCount = sessionStats.bounce_count || 0;
+                const bounceRate = totalSessions > 0 ? Math.round((bounceCount / totalSessions) * 100) : 0;
+
+                overview = {
                     pageViews,
                     uniqueVisitors,
                     bounceRate,
                     avgSiteActiveTimeSeconds,
-                },
-                topPages: topPages.slice(0, 10) // Limit to top 10 after calculations
+                };
+            }
+
+            return res.status(200).json({
+                overview,
+                topPages: topPages.slice(0, 10) // Always limit to top 10 for display
             });
 
         } else {
