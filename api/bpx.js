@@ -22,7 +22,14 @@ module.exports = async function handler(req, res) {
 
     try {
         if (req.method === 'POST') {
-            const { type, data } = req.body;
+            // FIX: Safely parse the request body, as it might be a string in some environments.
+            let body = req.body;
+            if (typeof body === 'string') {
+                try { body = JSON.parse(body); } 
+                catch { return res.status(400).json({ message: 'Invalid JSON body.' }); }
+            }
+            const { type, data } = body || {};
+
             const url = data ? data.u : null;
             if (!url) return res.status(400).json({ message: 'URL (u) is required.' });
 
@@ -53,8 +60,10 @@ module.exports = async function handler(req, res) {
                     sql: `INSERT INTO analytics_timeseries (url, domain, is_unique, referrer, browser, device_type, ip_address, visitor_hash, country) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                     args: [url, domain, isUnique, referrer, browser, device_type, ip, visitorHash, country],
                 });
+
+                // FIX: Correctly include all required columns in the INSERT statement.
                 await client.execute({
-                    sql: `INSERT INTO page_views (url, domain, views, unique_views) VALUES (?, ?, 1, ?) ON CONFLICT(url) DO UPDATE SET views = views + 1, unique_views = unique_views + ?;`,
+                    sql: `INSERT INTO page_views (url, domain, views, unique_views, total_active_seconds) VALUES (?, ?, 1, ?, 0) ON CONFLICT(url) DO UPDATE SET views = views + 1, unique_views = unique_views + ?;`,
                     args: [url, domain, isUnique ? 1 : 0, isUnique ? 1 : 0],
                 });
                 return res.status(202).json({ message: 'Pageview tracked.' });
@@ -84,7 +93,6 @@ module.exports = async function handler(req, res) {
             const domainFilterWhere = domainParam && domainParam !== 'all' ? `WHERE domain = ?` : '';
 
             if (period === 'all_time') {
-                // --- FAST, PRE-AGGREGATED "ALL TIME" VIEW ---
                 const queryArgs = domainParam && domainParam !== 'all' ? [domainParam] : [];
                 const allTimePagesSql = `SELECT url, views, unique_views, total_active_seconds FROM page_views ${domainFilterWhere} ORDER BY views DESC;`;
                 const allTimePagesResult = await client.execute({ sql: allTimePagesSql, args: queryArgs });
@@ -98,11 +106,10 @@ module.exports = async function handler(req, res) {
                 overview = {
                     pageViews,
                     uniqueVisitors,
-                    bounceRate: 0, // Note: Bounce rate is too costly to calculate for all-time view.
+                    bounceRate: 0,
                     avgSiteActiveTimeSeconds,
                 };
             } else {
-                // --- SLOW, REAL-TIME VIEW FOR SPECIFIC PERIODS ---
                 const intervalMap = { '1d': '-24 hours', '7d': '-7 days', '30d': '-30 days', '90d': '-90 days' };
                 const interval = intervalMap[period];
                 if (!interval) return res.status(400).json({ message: 'Invalid period specified.' });
@@ -155,7 +162,7 @@ module.exports = async function handler(req, res) {
 
             return res.status(200).json({
                 overview,
-                topPages: topPages.slice(0, 10) // Always limit to top 10 for display
+                topPages: topPages.slice(0, 10)
             });
 
         } else {
