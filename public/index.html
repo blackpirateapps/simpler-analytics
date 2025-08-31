@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale-1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Analytics Dashboard</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&display=swap" rel="stylesheet">
@@ -25,7 +25,6 @@
     <div id="main-container" class="max-w-4xl mx-auto p-5 md:p-8">
         <h1 class="text-3xl font-bold mb-6 text-center md:text-left">Web Analytics Overview</h1>
         
-        <!-- ... (Settings Section is unchanged) ... -->
         <details class="mb-8 bg-gray-50 rounded-lg border border-gray-200">
             <summary class="font-semibold cursor-pointer text-lg p-4 flex justify-between items-center">
                 <span>Settings & Tracking Script</span>
@@ -53,7 +52,6 @@
             </div>
         </details>
 
-        <!-- ... (Header is unchanged) ... -->
         <header id="dashboard-header" class="mb-8 p-4 bg-gray-50 rounded-lg border border-gray-200">
             <div class="flex flex-wrap items-center gap-y-4 gap-x-8">
                 <div id="time-range-selector">
@@ -81,7 +79,6 @@
         </footer>
     </div>
     
-    <!-- Password Modal -->
     <div id="password-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
         <div class="bg-white p-6 rounded-lg shadow-xl w-full max-w-sm">
             <h3 class="text-lg font-semibold mb-4">Admin Access</h3>
@@ -98,13 +95,11 @@
 
 
     <script>
-        // --- DOM Element Refs ---
         const analyticsContent = document.getElementById('analytics-content');
         const passwordModal = document.getElementById('password-modal');
         const passwordForm = document.getElementById('password-form');
         const passwordInput = document.getElementById('password-input');
         const cancelPasswordBtn = document.getElementById('cancel-password');
-        // ... other DOM refs are the same
         const lastUpdatedSpan = document.getElementById('last-updated');
         const addDomainForm = document.getElementById('add-domain-form');
         const domainInput = document.getElementById('domain-input');
@@ -119,81 +114,82 @@
         let fullTrackingScript = '';
         let currentUrlForAdmin = null;
 
-        // --- RENDER FUNCTIONS ---
-        // ... (renderDashboardView is unchanged)
+        function formatSeconds(seconds) {
+            if (isNaN(seconds) || seconds < 1) return `0s`;
+            if (seconds < 60) return `${Math.round(seconds)}s`;
+            const minutes = Math.floor(seconds / 60);
+            const remainingSeconds = Math.round(seconds % 60);
+            return `${minutes}m ${remainingSeconds}s`;
+        }
+
         function renderDashboardView(data) {
             const selectedDomain = domainFilter.value;
             const summary = data.summary || {};
             const overview = data.overview || {};
+            
             const pagesToRender = selectedDomain === 'all' ? Object.values(summary).flat() : (summary[selectedDomain] || []);
-            const domainViews = pagesToRender.reduce((sum, page) => sum + page.views, 0);
-            const domainUniques = pagesToRender.reduce((sum, page) => sum + (page.unique_views || 0), 0);
+            
+            let totalViews = 0;
+            let totalUniques = 0;
+            pagesToRender.forEach(p => {
+                totalViews += p.views;
+                totalUniques += p.unique_views;
+            });
+            
             const topPages = pagesToRender.sort((a, b) => b.views - a.views).slice(0, 10);
+            
             const overviewMetrics = [
-                { label: 'Page Views', value: (selectedDomain === 'all' ? overview.pageViews : domainViews).toLocaleString() },
-                { label: 'Unique Visitors', value: (selectedDomain === 'all' ? overview.uniqueVisitors : domainUniques).toLocaleString() },
+                { label: 'Page Views', value: totalViews.toLocaleString() },
+                { label: 'Unique Visitors', value: totalUniques.toLocaleString() },
                 { label: 'Bounce Rate', value: `${overview.bounceRate}%` },
-                { label: 'Avg Session', value: formatSeconds(overview.avgSessionSeconds) },
+                { label: 'Avg. Active Time', value: formatSeconds(overview.avgSiteActiveTimeSeconds) },
             ];
+
             let overviewHtml = overviewMetrics.map(metric => `<div><div class="text-2xl font-bold">${metric.value}</div><div class="text-sm text-gray-500">${metric.label}</div></div>`).join('');
+            
             let topPagesHtml = topPages.length > 0 ? topPages.map(page => {
-                const percentage = domainViews > 0 ? ((page.views / domainViews) * 100).toFixed(1) : 0;
                 const path = new URL(page.url).pathname;
-                return `<div class="data-list-row" onclick="showLogDetails('${encodeURIComponent(page.url)}')"><span>${path}</span><span class="flex gap-4 items-center"><span>${page.views.toLocaleString()}</span><span class="text-gray-500 w-16 text-right">${percentage}%</span></span></div>`;
+                const avgActiveTime = (page.views > 0) ? (page.total_active_seconds || 0) / page.views : 0;
+                return `<div class="data-list-row" onclick="showLogDetails('${encodeURIComponent(page.url)}')">
+                            <span>${path}</span>
+                            <span class="flex gap-4 items-center text-sm">
+                                <span class="w-20 text-right font-semibold">${formatSeconds(avgActiveTime)}</span>
+                                <span class="w-16 text-right text-gray-600">${page.views.toLocaleString()}</span>
+                            </span>
+                        </div>`;
             }).join('') : '<p class="text-gray-500 p-4 text-center">No page view data for this domain yet.</p>';
-            analyticsContent.innerHTML = `<div class="mb-10"><h2 class="section-header">Overview</h2><div class="grid grid-cols-2 md:grid-cols-4 gap-5">${overviewHtml}</div></div><div><h2 class="section-header">Top Pages</h2><div class="border-t border-gray-200">${topPagesHtml}</div></div>`;
+
+            analyticsContent.innerHTML = `
+                <div class="mb-10">
+                    <h2 class="section-header">Overview</h2>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-5">${overviewHtml}</div>
+                </div>
+                <div>
+                    <div class="flex justify-between items-center pr-2">
+                        <h2 class="section-header">Top Pages</h2>
+                        <div class="text-xs text-gray-500 flex gap-4">
+                           <span class="w-20 text-right">AVG. TIME</span>
+                           <span class="w-16 text-right">VIEWS</span>
+                        </div>
+                    </div>
+                    <div class="border-t border-gray-200">${topPagesHtml}</div>
+                </div>`;
         }
 
         function renderLogDetailsView(url, logs, isAdmin = false) {
             const decodedUrl = decodeURIComponent(url);
             const path = new URL(decodedUrl).pathname;
-            
             const ipHeader = isAdmin ? '<th class="p-2 font-semibold text-gray-500">IP ADDRESS</th>' : '';
             const ipCells = (log) => isAdmin ? `<td class="p-2">${log.ip_address}</td>` : '';
-
             let logsHtml = logs.map(log => {
                 const timestamp = new Date(log.timestamp).toLocaleString('en-GB', { timeZone: 'UTC' });
                 const referrer = log.referrer ? new URL(log.referrer).hostname : 'direct';
-                return `<tr class="border-b border-gray-200 text-xs">
-                    <td class="p-2 text-gray-500">${timestamp}</td>
-                    <td class="p-2">${log.country}</td>
-                    ${ipCells(log)}
-                    <td class="p-2">${log.browser}</td>
-                    <td class="p-2">${log.device_type}</td>
-                    <td class="p-2" title="${log.referrer || ''}">${referrer}</td>
-                </tr>`;
+                return `<tr class="border-b border-gray-200 text-xs"><td class="p-2 text-gray-500">${timestamp}</td><td class="p-2">${log.country}</td>${ipCells(log)}<td class="p-2">${log.browser}</td><td class="p-2">${log.device_type}</td><td class="p-2" title="${log.referrer || ''}">${referrer}</td></tr>`;
             }).join('');
-
             const adminButton = `<button onclick="requestAdminView('${url}')" class="text-xs font-semibold text-blue-600 hover:underline">Show IP</button>`;
-
-            analyticsContent.innerHTML = `<div class="mb-10">
-                <div class="flex justify-between items-center mb-4">
-                    <div>
-                        <h2 class="section-header inline">Recent Activity: ${path}</h2>
-                        <span class="ml-4">${adminButton}</span>
-                    </div>
-                    <button onclick="showSummaryView()" class="text-sm font-semibold hover:text-blue-600">&lt; BACK TO SUMMARY</button>
-                </div>
-                <div class="overflow-x-auto border-t border-gray-200">
-                    <table class="w-full text-left">
-                        <thead>
-                            <tr class="border-b border-gray-300 text-xs">
-                                <th class="p-2 font-semibold text-gray-500">TIMESTAMP (UTC)</th>
-                                <th class="p-2 font-semibold text-gray-500">COUNTRY</th>
-                                ${ipHeader}
-                                <th class="p-2 font-semibold text-gray-500">BROWSER</th>
-                                <th class="p-2 font-semibold text-gray-500">DEVICE</th>
-                                <th class="p-2 font-semibold text-gray-500">REFERRER</th>
-                            </tr>
-                        </thead>
-                        <tbody>${logsHtml}</tbody>
-                    </table>
-                </div>
-            </div>`;
+            analyticsContent.innerHTML = `<div class="mb-10"><div class="flex justify-between items-center mb-4"><div><h2 class="section-header inline">Recent Activity: ${path}</h2><span class="ml-4">${adminButton}</span></div><button onclick="showSummaryView()" class="text-sm font-semibold hover:text-blue-600">&lt; BACK TO SUMMARY</button></div><div class="overflow-x-auto border-t border-gray-200"><table class="w-full text-left"><thead><tr class="border-b border-gray-300 text-xs"><th class="p-2 font-semibold text-gray-500">TIMESTAMP (UTC)</th><th class="p-2 font-semibold text-gray-500">COUNTRY</th>${ipHeader}<th class="p-2 font-semibold text-gray-500">BROWSER</th><th class="p-2 font-semibold text-gray-500">DEVICE</th><th class="p-2 font-semibold text-gray-500">REFERRER</th></tr></thead><tbody>${logsHtml}</tbody></table></div></div>`;
         }
         
-        // --- DATA FETCHING & STATE MANAGEMENT ---
-        // ... (fetchDataAndRender and showSummaryView are unchanged)
         async function fetchDataAndRender(period) {
             analyticsContent.innerHTML = '<p class="text-gray-500">Fetching analytics data...</p>';
             try {
@@ -202,10 +198,9 @@
                 const data = await response.json();
                 apiDataCache = data;
                 renderDashboardView(apiDataCache);
-            } catch (error) {
-                analyticsContent.innerHTML = `<p class="text-red-500">Error: ${error.message}</p>`;
-            }
+            } catch (error) { analyticsContent.innerHTML = `<p class="text-red-500">Error: ${error.message}</p>`; }
         }
+
         function showSummaryView() { if (apiDataCache) renderDashboardView(apiDataCache); }
 
         async function showLogDetails(url, adminKey = null) {
@@ -222,7 +217,6 @@
             }
         }
         
-        // --- ADMIN & PASSWORD LOGIC ---
         function requestAdminView(url) {
             currentUrlForAdmin = url;
             passwordModal.style.display = 'flex';
@@ -232,33 +226,69 @@
         passwordForm.addEventListener('submit', (e) => {
             e.preventDefault();
             const password = passwordInput.value;
-            if (password && currentUrlForAdmin) {
-                showLogDetails(currentUrlForAdmin, password);
-            }
+            if (password && currentUrlForAdmin) { showLogDetails(currentUrlForAdmin, password); }
             passwordModal.style.display = 'none';
             passwordInput.value = '';
         });
-
         cancelPasswordBtn.addEventListener('click', () => {
             passwordModal.style.display = 'none';
             passwordInput.value = '';
         });
 
-
-        // --- DOMAIN & SCRIPT MANAGEMENT ---
-        // ... (All functions in this section are unchanged)
-        function formatSeconds(seconds) { if (seconds < 60) return `${seconds}s`; const minutes = Math.floor(seconds / 60); const remainingSeconds = seconds % 60; return `${minutes}m ${remainingSeconds}s`; }
         async function fetchTrackedDomains() { try { const response = await fetch('/api/domains'); if (!response.ok) throw new Error('Could not fetch domains'); const { domains } = await response.json(); trackedDomainsList.innerHTML = ''; domainFilter.innerHTML = '<option value="all">All Domains</option>'; if (domains.length > 0) { domains.sort().forEach(domain => { const li = document.createElement('li'); li.className = 'flex justify-between items-center'; li.innerHTML = `<span>${domain}</span><button data-domain="${domain}" class="delete-domain-btn text-red-500 hover:text-red-700 text-lg">&times;</button>`; trackedDomainsList.appendChild(li); const option = document.createElement('option'); option.value = domain; option.textContent = domain; domainFilter.appendChild(option); }); } else { trackedDomainsList.innerHTML = '<li class="text-gray-500">No domains tracked.</li>'; } } catch (error) { trackedDomainsList.innerHTML = `<li class="text-red-500">${error.message}</li>`; } }
         async function deleteDomain(domain) { if (!confirm(`Are you sure you want to delete ${domain}?`)) return; try { const response = await fetch('/api/domains', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ domain }), }); if (!response.ok) { const { message } = await response.json(); throw new Error(message || 'Failed to delete domain.'); } await fetchTrackedDomains(); } catch (error) { alert(`Error: ${error.message}`); } }
-        function generateTrackingScript() { const endpoint = `${window.location.origin}/api/bpx`; fullTrackingScript = `<script>\\n(async function() {\\n  try {\\n    await fetch('${endpoint}', {\\n      method: 'POST',\\n      headers: { 'Content-Type': 'application/json' },\\n      body: JSON.stringify({ data: { u: window.location.href, r: document.referrer } }),\\n      mode: 'cors'\\n    });\\n  } catch(e) { /* Analytics script failed silently */ }\\n})();\\n<\\/script>`; trackingScriptBlock.textContent = fullTrackingScript; }
+        
+        function generateTrackingScript() {
+            const endpoint = `${window.location.origin}/api/bpx`;
+            fullTrackingScript = `<script>
+(function() {
+  const endpoint = '${endpoint}';
+  try {
+    const payload = { type: 'pageview', data: { u: window.location.href, r: document.referrer } };
+    fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), mode: 'cors' });
+  } catch(e) {}
+
+  let lastFocusTime = Date.now();
+  const sendDuration = () => {
+    if (document.visibilityState === 'hidden' && lastFocusTime) {
+      const duration = (Date.now() - lastFocusTime) / 1000;
+      if (duration > 0.5) { // Only send if duration is meaningful
+        const payload = { type: 'duration', data: { u: window.location.href, duration: duration } };
+        navigator.sendBeacon(endpoint, JSON.stringify(payload));
+      }
+      lastFocusTime = null;
+    } else if (document.visibilityState === 'visible') {
+      lastFocusTime = Date.now();
+    }
+  };
+  document.addEventListener('visibilitychange', sendDuration, true);
+  window.addEventListener('beforeunload', sendDuration, true);
+})();
+<\/script>`;
+            trackingScriptBlock.textContent = fullTrackingScript;
+        }
+
         domainFilter.addEventListener('change', () => { if (apiDataCache) renderDashboardView(apiDataCache); });
         timeRangeSelector.addEventListener('click', (e) => { if (e.target.tagName === 'BUTTON') { timeRangeSelector.querySelector('.active').classList.remove('active'); e.target.classList.add('active'); const period = e.target.dataset.period; fetchDataAndRender(period); } });
         addDomainForm.addEventListener('submit', async (e) => { e.preventDefault(); const domain = domainInput.value.trim(); if (!domain) return; formMessage.textContent = 'Adding...'; try { const response = await fetch('/api/domains', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ domain }), }); const result = await response.json(); if (response.ok) { formMessage.textContent = `SUCCESS: Domain '${domain}' added.`; formMessage.className = 'text-sm text-green-600'; domainInput.value = ''; await fetchTrackedDomains(); } else { throw new Error(result.message || 'Failed to add domain.'); } } catch (error) { formMessage.textContent = `ERROR: ${error.message}`; formMessage.className = 'text-sm text-red-600'; } });
         trackedDomainsList.addEventListener('click', (e) => { if (e.target.classList.contains('delete-domain-btn')) { const domain = e.target.dataset.domain; deleteDomain(domain); } });
         copyScriptButton.addEventListener('click', () => { navigator.clipboard.writeText(fullTrackingScript).then(() => { copyScriptButton.textContent = 'COPIED!'; setTimeout(() => { copyScriptButton.textContent = 'COPY'; }, 2000); }, () => { copyScriptButton.textContent = 'ERROR'; }); });
+        
         function updateFooterTimestamp() { lastUpdatedSpan.textContent = new Date().toLocaleString(); }
-        function initializeDashboard() { const initialPeriod = timeRangeSelector.querySelector('.active').dataset.period; fetchDataAndRender(initialPeriod); fetchTrackedDomains(); generateTrackingScript(); updateFooterTimestamp(); setInterval(updateFooterTimestamp, 1000 * 60); }
-        window.showLogDetails = showLogDetails; window.showSummaryView = showSummaryView; window.requestAdminView = requestAdminView;
+        
+        function initializeDashboard() {
+            const initialPeriod = timeRangeSelector.querySelector('.active').dataset.period;
+            fetchDataAndRender(initialPeriod);
+            fetchTrackedDomains();
+            generateTrackingScript();
+            updateFooterTimestamp();
+            setInterval(updateFooterTimestamp, 1000 * 60);
+        }
+
+        window.showLogDetails = showLogDetails;
+        window.showSummaryView = showSummaryView;
+        window.requestAdminView = requestAdminView;
+
         initializeDashboard();
     </script>
 </body>
